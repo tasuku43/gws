@@ -13,7 +13,7 @@
 | MVP-010 | Implement root resolution | Done |
 | MVP-011 | Implement config loader | Done |
 | MVP-012 | Git command runner | Done |
-| MVP-020 | Repo spec normalization | To Do |
+| MVP-020 | Repo spec normalization | Done |
 | MVP-021 | gws repo get | To Do |
 | MVP-022 | gws repo ls | To Do |
 | MVP-030 | gws ws new | To Do |
