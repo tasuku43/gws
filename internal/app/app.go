@@ -20,6 +20,7 @@ import (
 	"github.com/tasuku43/gws/internal/repo"
 	"github.com/tasuku43/gws/internal/template"
 	"github.com/tasuku43/gws/internal/workspace"
+	texttmpl "text/template"
 )
 
 // Run is a placeholder for the CLI entrypoint.
@@ -130,8 +131,10 @@ func runTemplateAdd(ctx context.Context, rootDir string, args []string) error {
 	for _, warning := range repoWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %v\n", warning)
 	}
+	available := make([]string, len(knownRepos))
+	copy(available, knownRepos)
 	for {
-		repoSpec, err := promptRepoSelect(knownRepos)
+		repoSpec, remaining, err := promptRepoSelect(available)
 		if err != nil {
 			return err
 		}
@@ -139,6 +142,7 @@ func runTemplateAdd(ctx context.Context, rootDir string, args []string) error {
 			break
 		}
 		repos = append(repos, repoSpec)
+		available = remaining
 	}
 	if len(repos) == 0 {
 		return fmt.Errorf("at least one repo is required")
@@ -457,10 +461,33 @@ func promptSelect(label string, items []string) (string, error) {
 	if len(items) == 0 {
 		return "", fmt.Errorf("no items to select")
 	}
+	displayItem := func(value string) string {
+		if value == "done" {
+			return value
+		}
+		return strings.TrimSuffix(value, ".git")
+	}
 	sel := promptui.Select{
 		Label: label,
 		Items: items,
 		Size:  min(10, len(items)),
+		Searcher: func(input string, index int) bool {
+			item := displayItem(items[index])
+			input = strings.ToLower(strings.TrimSpace(input))
+			item = strings.ToLower(item)
+			return strings.Contains(item, input)
+		},
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "> {{ . | trimGit }}",
+			Inactive: "  {{ . | trimGit }}",
+			Selected: "{{ . | trimGit }}",
+			FuncMap: texttmpl.FuncMap{
+				"trimGit": func(item string) string {
+					return displayItem(item)
+				},
+			},
+		},
 	}
 	_, result, err := sel.Run()
 	if err != nil {
@@ -469,8 +496,8 @@ func promptSelect(label string, items []string) (string, error) {
 	return result, nil
 }
 
-func promptRepoSelect(repos []string) (string, error) {
-	options := make([]string, 0, len(repos)+2)
+func promptRepoSelect(repos []string) (string, []string, error) {
+	options := make([]string, 0, len(repos)+1)
 	seen := map[string]struct{}{}
 	for _, repo := range repos {
 		if strings.TrimSpace(repo) == "" {
@@ -482,19 +509,22 @@ func promptRepoSelect(repos []string) (string, error) {
 		seen[repo] = struct{}{}
 		options = append(options, repo)
 	}
-	options = append(options, "manual entry", "done")
+	options = append(options, "done")
 	selected, err := promptSelect("repo", options)
 	if err != nil {
-		return "", err
+		return "", repos, err
 	}
-	switch selected {
-	case "done":
-		return "", nil
-	case "manual entry":
-		return promptText("repo", true)
-	default:
-		return selected, nil
+	if selected == "done" {
+		return "", repos, nil
 	}
+	remaining := make([]string, 0, len(repos))
+	for _, repo := range repos {
+		if repo == selected {
+			continue
+		}
+		remaining = append(remaining, repo)
+	}
+	return selected, remaining, nil
 }
 
 func listRepoKeys(rootDir string) ([]string, []error, error) {
