@@ -96,11 +96,58 @@ func runTemplate(ctx context.Context, rootDir string, jsonFlag bool, args []stri
 		return fmt.Errorf("template subcommand is required")
 	}
 	switch args[0] {
+	case "add":
+		return runTemplateAdd(ctx, rootDir, args[1:])
 	case "ls":
 		return runTemplateList(ctx, rootDir, jsonFlag, args[1:])
 	default:
 		return fmt.Errorf("unknown template subcommand: %s", args[0])
 	}
+}
+
+func runTemplateAdd(ctx context.Context, rootDir string, args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("usage: gws template add")
+	}
+	reader := bufio.NewReader(os.Stdin)
+	name, err := promptInput(reader, "template name> ")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("template name is required")
+	}
+
+	file, err := template.Load(rootDir)
+	if err != nil {
+		return err
+	}
+	if _, exists := file.Templates[name]; exists {
+		return fmt.Errorf("template already exists: %s", name)
+	}
+
+	var repos []template.TemplateRepo
+	for {
+		repoSpec, err := promptInput(reader, "repo (blank to finish)> ")
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(repoSpec) == "" {
+			break
+		}
+		repos = append(repos, template.TemplateRepo{Repo: repoSpec})
+	}
+	if len(repos) == 0 {
+		return fmt.Errorf("at least one repo is required")
+	}
+
+	file.Templates[name] = template.Template{Repos: repos}
+	if err := template.Save(rootDir, file); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "added template: %s\n", name)
+	return nil
 }
 
 func runTemplateList(ctx context.Context, rootDir string, jsonFlag bool, args []string) error {

@@ -256,6 +256,7 @@ Goal:
 
 Acceptance:
 - `gws template ls` でテンプレート名を一覧できる
+- `gws template add` でテンプレートを追加できる（同名はエラー）
 - `gws new --template <name> <id>` で template の repos が `ws` に追加される
 - template 未指定時は対話で template と workspace id を入力できる
 - repo get 未実行の repo があればエラーで中断する

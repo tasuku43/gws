@@ -32,6 +32,7 @@
 - `gws src get <repo>`
 - `gws src ls`
 - `gws template ls`
+- `gws template add`
 
 ## repo
 
@@ -72,6 +73,10 @@ MVP出力:
 ### gws template ls
 目的:
 - `$GWS_ROOT/templates.yaml` に定義されたテンプレート名を一覧する
+
+### gws template add
+目的:
+- 対話形式でテンプレートを追加する
 
 ## init
 

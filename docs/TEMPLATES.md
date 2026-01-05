@@ -18,3 +18,4 @@ templates:
 ルール:
 - `gws new` でテンプレート名を指定（未指定なら対話）
 - repo は `gws repo get` 済みであることが前提（未取得ならエラー）
+- `gws template add` は対話形式でテンプレートを追加する
