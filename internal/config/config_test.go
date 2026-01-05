@@ -45,4 +45,7 @@ func TestLoadConfigRoot(t *testing.T) {
 	if cfg.Paths.ReposDir != "bare" {
 		t.Fatalf("expected repos dir default, got %q", cfg.Paths.ReposDir)
 	}
+	if cfg.Paths.SrcDir != "src" {
+		t.Fatalf("expected src dir default, got %q", cfg.Paths.SrcDir)
+	}
 }

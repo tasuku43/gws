@@ -41,7 +41,8 @@ gws は、作業場を workspace（タスク単位ディレクトリ）へ昇格
 - 未指定の場合のデフォルトは `~/gws`
 
 `$GWS_ROOT` 配下の固定構造（v0.1）:
-- `$GWS_ROOT/bare/`  : repo store（bare repo）
+- `$GWS_ROOT/bare/` : repo store（bare repo）
+- `$GWS_ROOT/src/`  : human working tree
 - `$GWS_ROOT/ws/`    : workspace 群（タスク単位）
 
 ## 4. 設定（Config）

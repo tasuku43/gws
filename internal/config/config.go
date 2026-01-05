@@ -19,6 +19,7 @@ type Config struct {
 
 type PathsConfig struct {
 	ReposDir string `yaml:"repos_dir"`
+	SrcDir   string `yaml:"src_dir"`
 	WsDir    string `yaml:"ws_dir"`
 }
 
@@ -51,6 +52,7 @@ func DefaultConfig() Config {
 		Root:    "",
 		Paths: PathsConfig{
 			ReposDir: "bare",
+			SrcDir:   "src",
 			WsDir:    "ws",
 		},
 		Defaults: DefaultsConfig{

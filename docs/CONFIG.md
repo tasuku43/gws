@@ -13,6 +13,7 @@ root: ""
 
 paths:
   repos_dir: "bare"
+  src_dir: "src"
   ws_dir: "ws"
 
 defaults:
