@@ -4,11 +4,37 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Root string
+	Version  int            `yaml:"version"`
+	Root     string         `yaml:"root"`
+	Paths    PathsConfig    `yaml:"paths"`
+	Defaults DefaultsConfig `yaml:"defaults"`
+	Naming   NamingConfig   `yaml:"naming"`
+	Repo     RepoConfig     `yaml:"repo"`
+}
+
+type PathsConfig struct {
+	ReposDir string `yaml:"repos_dir"`
+	WsDir    string `yaml:"ws_dir"`
+}
+
+type DefaultsConfig struct {
+	BaseRef string `yaml:"base_ref"`
+	TTLDays int    `yaml:"ttl_days"`
+}
+
+type NamingConfig struct {
+	WorkspaceIDMustBeValidRefname bool `yaml:"workspace_id_must_be_valid_refname"`
+	BranchEqualsWorkspaceID       bool `yaml:"branch_equals_workspace_id"`
+}
+
+type RepoConfig struct {
+	DefaultHost     string `yaml:"default_host"`
+	DefaultProtocol string `yaml:"default_protocol"`
 }
 
 func DefaultPath() (string, error) {
@@ -19,7 +45,32 @@ func DefaultPath() (string, error) {
 	return filepath.Join(home, ".config", "gws", "config.yaml"), nil
 }
 
+func DefaultConfig() Config {
+	return Config{
+		Version: 1,
+		Root:    "",
+		Paths: PathsConfig{
+			ReposDir: "repos",
+			WsDir:    "ws",
+		},
+		Defaults: DefaultsConfig{
+			BaseRef: "origin/main",
+			TTLDays: 30,
+		},
+		Naming: NamingConfig{
+			WorkspaceIDMustBeValidRefname: true,
+			BranchEqualsWorkspaceID:       true,
+		},
+		Repo: RepoConfig{
+			DefaultHost:     "github.com",
+			DefaultProtocol: "https",
+		},
+	}
+}
+
 func Load(path string) (Config, error) {
+	cfg := DefaultConfig()
+
 	if path == "" {
 		var err error
 		path, err = DefaultPath()
@@ -31,40 +82,14 @@ func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Config{}, nil
+			return cfg, nil
 		}
 		return Config{}, err
 	}
 
-	root, err := parseRoot(data)
-	if err != nil {
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
 
-	return Config{Root: root}, nil
-}
-
-func parseRoot(data []byte) (string, error) {
-	for _, line := range strings.Split(string(data), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if !strings.HasPrefix(trimmed, "root:") {
-			continue
-		}
-		value := strings.TrimSpace(strings.TrimPrefix(trimmed, "root:"))
-		if value == "" {
-			return "", nil
-		}
-		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
-			value = strings.TrimSuffix(strings.TrimPrefix(value, "\""), "\"")
-		}
-		if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") && len(value) >= 2 {
-			value = strings.TrimSuffix(strings.TrimPrefix(value, "'"), "'")
-		}
-		return value, nil
-	}
-
-	return "", nil
+	return cfg, nil
 }
