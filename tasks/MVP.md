@@ -10,7 +10,7 @@
 | Task ID | Goal (short) | Status |
 | --- | --- | --- |
 | MVP-001 | Initialize repository skeleton | Done |
-| MVP-010 | Implement root resolution | To Do |
+| MVP-010 | Implement root resolution | Done |
 | MVP-011 | Implement config loader | To Do |
 | MVP-012 | Git command runner | To Do |
 | MVP-020 | Repo spec normalization | To Do |
