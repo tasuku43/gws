@@ -46,8 +46,6 @@
 ## EP0: Repo bootstrap & docs
 
 ### MVP-001: Initialize repository skeleton
-Status: To Do
-
 Goal:
 - Go module / basic folder structure / docs placeholders を作る
 
@@ -63,8 +61,6 @@ Notes:
 ## EP1: Core libs (config/root/log/exec)
 
 ### MVP-010: Implement root resolution
-Status: To Do
-
 Goal:
 - `--root`, `GWS_ROOT`, config, default の優先順位で root を決定
 
@@ -79,8 +75,6 @@ Files:
 - internal/paths
 
 ### MVP-011: Implement config loader
-Status: To Do
-
 Goal:
 - `~/.config/gws/config.yaml` をロードし、デフォルト値を埋める
 
@@ -90,8 +84,6 @@ Acceptance:
 - 未設定でもクラッシュしない
 
 ### MVP-012: Git command runner
-Status: To Do
-
 Goal:
 - `git` を `os/exec` で実行し、stdout/stderr/exit を扱える共通関数を作る
 
@@ -104,8 +96,6 @@ Acceptance:
 ## EP2: Repo store
 
 ### MVP-020: Repo spec normalization
-Status: To Do
-
 Goal:
 - remote URL / github.com/org/repo を repo_key (host/owner/repo) に正規化
 
@@ -115,8 +105,6 @@ Acceptance:
 - 不正形式はわかりやすくエラー
 
 ### MVP-021: gws repo get
-Status: To Do
-
 Goal:
 - repo store を作成（clone --bare）/ 更新（fetch --prune）
 
@@ -125,8 +113,6 @@ Acceptance:
 - 既存: fetch が走り、失敗時はエラーがわかる
 
 ### MVP-022: gws repo ls
-Status: To Do
-
 Goal:
 - repo store の一覧表示（MVP）
 
@@ -139,8 +125,6 @@ Acceptance:
 ## EP3: Workspace
 
 ### MVP-030: gws ws new
-Status: To Do
-
 Goal:
 - workspace dir + `.gws/manifest.yaml` 作成
 
@@ -150,8 +134,6 @@ Acceptance:
 - manifest が生成される
 
 ### MVP-031: manifest read/write library
-Status: To Do
-
 Goal:
 - manifest の読み書きと更新（repos追記、last_used_at更新）
 
@@ -160,8 +142,6 @@ Acceptance:
 - 冪等（同じ repo/alias を二重登録しない）
 
 ### MVP-032: gws ws add (worktree add)
-Status: To Do
-
 Goal:
 - repo store を最新化し、`<root>/ws/<id>/<alias>` に worktree を作成する
 
@@ -175,8 +155,6 @@ Acceptance:
 - manifest に store_path, worktree_path が入る
 
 ### MVP-033: gws ws ls
-Status: To Do
-
 Goal:
 - workspace 一覧を出す
 
@@ -184,8 +162,6 @@ Acceptance:
 - `<root>/ws/*` を列挙し、manifest があれば読み、無ければ警告
 
 ### MVP-034: gws ws status
-Status: To Do
-
 Goal:
 - workspace 内の repo の状態（dirty等）を集計
 
@@ -194,8 +170,6 @@ Acceptance:
 - alias ごとに結果を出せる
 
 ### MVP-035: gws ws rm
-Status: To Do
-
 Goal:
 - workspace を安全に削除
 
@@ -209,8 +183,6 @@ Acceptance:
 ## EP4: GC & Doctor
 
 ### MVP-040: gws gc --dry-run
-Status: To Do
-
 Goal:
 - stale workspace の候補を列挙
 
@@ -219,8 +191,6 @@ Acceptance:
 - pinned は除外
 
 ### MVP-041: gws gc (execute)
-Status: To Do
-
 Goal:
 - 候補 workspace を安全に回収
 
@@ -229,8 +199,6 @@ Acceptance:
 - ws rm 相当の削除を行う
 
 ### MVP-042: gws doctor
-Status: To Do
-
 Goal:
 - 最低限の不整合検出
 
@@ -244,14 +212,10 @@ Acceptance:
 ## EP5: Tests
 
 ### MVP-050: Unit tests for normalization & config
-Status: To Do
-
 Acceptance:
 - 正規化と root 解決にテストがある
 
 ### MVP-051: Integration tests for repo get + ws add/rm
-Status: To Do
-
 Acceptance:
 - temp dir で local dummy remote を作り、一通り通る
 
@@ -260,7 +224,6 @@ Acceptance:
 ## EP6: Release hygiene (optional for MVP)
 
 ### MVP-060: Basic Makefile or justfile
-Status: To Do
 Acceptance:
 - `make test`, `make fmt` 等が動く
 
