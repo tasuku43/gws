@@ -1,0 +1,11 @@
+version: "3"
+
+tasks:
+  fmt:
+    desc: Run gofmt on all files
+    cmds:
+      - gofmt -w .
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
