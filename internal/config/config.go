@@ -54,7 +54,7 @@ func DefaultConfig() Config {
 			WsDir:    "ws",
 		},
 		Defaults: DefaultsConfig{
-			BaseRef: "origin/main",
+			BaseRef: "",
 			TTLDays: 30,
 		},
 		Naming: NamingConfig{

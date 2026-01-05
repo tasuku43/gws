@@ -64,7 +64,7 @@ MVP出力:
 
 既定ルール:
 - branch = WORKSPACE_ID
-- base_ref = 設定の defaults.base_ref（既定 origin/main）
+- base_ref = defaults.base_ref（空なら origin/HEAD から自動検出）
 
 挙動:
 1. repo get 済みであることを前提に store を最新化（未取得ならエラー）

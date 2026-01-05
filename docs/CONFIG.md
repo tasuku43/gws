@@ -16,7 +16,8 @@ paths:
   ws_dir: "ws"
 
 defaults:
-  base_ref: "origin/main"
+  # 空なら origin/HEAD を参照して自動検出する
+  base_ref: ""
   ttl_days: 30
 
 naming:

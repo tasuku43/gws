@@ -69,6 +69,7 @@ var allowedSubcommands = map[string]struct{}{
 	"fetch":            {},
 	"init":             {},
 	"show-ref":         {},
+	"symbolic-ref":     {},
 	"status":           {},
 	"worktree":         {},
 }

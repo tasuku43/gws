@@ -58,9 +58,9 @@ func Add(ctx context.Context, rootDir, workspaceID, repoSpec, alias string, cfg 
 	}
 
 	branch := workspaceID
-	baseRef := strings.TrimSpace(cfg.Defaults.BaseRef)
-	if baseRef == "" {
-		baseRef = "origin/main"
+	baseRef, err := resolveBaseRef(ctx, store.StorePath, cfg)
+	if err != nil {
+		return Repo{}, err
 	}
 
 	branchExists, err := branchExistsInStore(ctx, store.StorePath, branch)
@@ -98,6 +98,63 @@ func Add(ctx context.Context, rootDir, workspaceID, repoSpec, alias string, cfg 
 	}
 
 	return repoEntry, nil
+}
+
+func resolveBaseRef(ctx context.Context, storePath string, cfg config.Config) (string, error) {
+	if storePath == "" {
+		return "", fmt.Errorf("store path is required")
+	}
+
+	if base := strings.TrimSpace(cfg.Defaults.BaseRef); base != "" {
+		return base, nil
+	}
+
+	ref, err := detectDefaultRemoteRef(ctx, storePath)
+	if err == nil && ref != "" {
+		return ref, nil
+	}
+
+	for _, candidate := range []string{"origin/main", "origin/master", "origin/develop"} {
+		exists, err := remoteRefExists(ctx, storePath, candidate)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return candidate, nil
+		}
+	}
+
+	if err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("cannot detect default base ref; set defaults.base_ref")
+}
+
+func detectDefaultRemoteRef(ctx context.Context, storePath string) (string, error) {
+	res, err := gitcmd.Run(ctx, []string{"symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"}, gitcmd.Options{Dir: storePath})
+	if err != nil {
+		if res.ExitCode == 1 {
+			return "", nil
+		}
+		return "", err
+	}
+	ref := strings.TrimSpace(res.Stdout)
+	if !strings.HasPrefix(ref, "refs/remotes/") {
+		return "", nil
+	}
+	return strings.TrimPrefix(ref, "refs/remotes/"), nil
+}
+
+func remoteRefExists(ctx context.Context, storePath, ref string) (bool, error) {
+	fullRef := fmt.Sprintf("refs/remotes/%s", ref)
+	res, err := gitcmd.Run(ctx, []string{"show-ref", "--verify", fullRef}, gitcmd.Options{Dir: storePath})
+	if err == nil {
+		return true, nil
+	}
+	if res.ExitCode == 1 {
+		return false, nil
+	}
+	return false, err
 }
 
 func branchExistsInStore(ctx context.Context, storePath, branch string) (bool, error) {
