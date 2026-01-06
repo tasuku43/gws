@@ -38,10 +38,10 @@ func Get(ctx context.Context, rootDir string, repo string) (Store, error) {
 		if _, err := gitcmd.Run(ctx, []string{"clone", "--bare", remoteURL, storePath}, gitcmd.Options{}); err != nil {
 			return Store{}, err
 		}
-	} else {
-		if _, err := gitcmd.Run(ctx, []string{"fetch", "--prune"}, gitcmd.Options{Dir: storePath}); err != nil {
-			return Store{}, err
-		}
+	}
+
+	if err := normalizeStore(ctx, storePath); err != nil {
+		return Store{}, err
 	}
 
 	if err := ensureSrc(ctx, rootDir, spec, storePath, remoteURL); err != nil {
@@ -101,6 +101,67 @@ func ensureSrc(ctx context.Context, rootDir string, spec repospec.Spec, storePat
 		return err
 	}
 	_, _ = gitcmd.Run(ctx, []string{"remote", "set-url", "origin", remoteURL}, gitcmd.Options{Dir: srcPath})
+	return nil
+}
+
+func normalizeStore(ctx context.Context, storePath string) error {
+	if _, err := gitcmd.Run(ctx, []string{"config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"}, gitcmd.Options{Dir: storePath}); err != nil {
+		return err
+	}
+	if _, err := gitcmd.Run(ctx, []string{"fetch", "--prune"}, gitcmd.Options{Dir: storePath}); err != nil {
+		return err
+	}
+	_, _ = gitcmd.Run(ctx, []string{"remote", "set-head", "origin", "-a"}, gitcmd.Options{Dir: storePath})
+
+	defaultBranch, err := defaultBranchFromOriginHead(ctx, storePath)
+	if err != nil {
+		return err
+	}
+	if defaultBranch == "" {
+		return nil
+	}
+	return pruneLocalHeads(ctx, storePath, defaultBranch)
+}
+
+func defaultBranchFromOriginHead(ctx context.Context, storePath string) (string, error) {
+	res, err := gitcmd.Run(ctx, []string{"symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"}, gitcmd.Options{Dir: storePath})
+	if err != nil {
+		if res.ExitCode == 1 {
+			return "", nil
+		}
+		return "", err
+	}
+	ref := strings.TrimSpace(res.Stdout)
+	if !strings.HasPrefix(ref, "refs/remotes/origin/") {
+		return "", nil
+	}
+	return strings.TrimPrefix(ref, "refs/remotes/origin/"), nil
+}
+
+func pruneLocalHeads(ctx context.Context, storePath, keepBranch string) error {
+	res, err := gitcmd.Run(ctx, []string{"show-ref", "--heads"}, gitcmd.Options{Dir: storePath})
+	if err != nil && res.ExitCode != 1 {
+		return err
+	}
+	lines := strings.Split(strings.TrimSpace(res.Stdout), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			continue
+		}
+		ref := parts[1]
+		if !strings.HasPrefix(ref, "refs/heads/") {
+			continue
+		}
+		name := strings.TrimPrefix(ref, "refs/heads/")
+		if name == keepBranch {
+			continue
+		}
+		_, _ = gitcmd.Run(ctx, []string{"update-ref", "-d", ref}, gitcmd.Options{Dir: storePath})
+	}
 	return nil
 }
 
