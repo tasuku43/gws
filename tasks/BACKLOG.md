@@ -8,6 +8,8 @@
     - schema_version を固定し、エラーも JSON で安定返却
 - GitHub integration:
     - PR merge 状態で gc 候補精度を上げる
+- gws review:
+    - PR URL からレビュー用 workspace を作成（GitHub 限定）
 - Advanced safety:
     - “nuke” の明確な設計と監査ログ
 - Windows support

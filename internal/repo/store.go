@@ -144,6 +144,12 @@ func normalizeStore(ctx context.Context, storePath, display string, fetch bool) 
 		if err != nil {
 			return err
 		}
+		if localHash == "" {
+			localHash, err = localHeadHash(ctx, storePath, defaultBranch)
+			if err != nil {
+				return err
+			}
+		}
 		if localHash == remoteHash {
 			needsFetch = false
 		}
@@ -193,6 +199,22 @@ func defaultBranchFromRemote(ctx context.Context, storePath string) (string, str
 
 func localRemoteHash(ctx context.Context, storePath, branch string) (string, error) {
 	ref := fmt.Sprintf("refs/remotes/origin/%s", branch)
+	res, err := gitcmd.Run(ctx, []string{"show-ref", "--verify", ref}, gitcmd.Options{Dir: storePath})
+	if err == nil {
+		fields := strings.Fields(strings.TrimSpace(res.Stdout))
+		if len(fields) >= 1 {
+			return fields[0], nil
+		}
+		return "", nil
+	}
+	if res.ExitCode == 1 || (res.ExitCode == 128 && strings.Contains(res.Stderr, "not a valid ref")) {
+		return "", nil
+	}
+	return "", err
+}
+
+func localHeadHash(ctx context.Context, storePath, branch string) (string, error) {
+	ref := fmt.Sprintf("refs/heads/%s", branch)
 	res, err := gitcmd.Run(ctx, []string{"show-ref", "--verify", ref}, gitcmd.Options{Dir: storePath})
 	if err == nil {
 		fields := strings.Fields(strings.TrimSpace(res.Stdout))

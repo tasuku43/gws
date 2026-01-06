@@ -273,6 +273,7 @@ func runWorkspaceNew(ctx context.Context, rootDir string, args []string, noPromp
 		if noPrompt {
 			return fmt.Errorf("template name and workspace id are required without prompt")
 		}
+		fmt.Fprintln(os.Stdout)
 		var err error
 		templateName, workspaceID, err = promptTemplateAndID(rootDir, templateName, workspaceID)
 		if err != nil {
@@ -301,8 +302,9 @@ func runWorkspaceNew(ctx context.Context, rootDir string, args []string, noPromp
 		if noPrompt {
 			return fmt.Errorf("repo get required for: %s", strings.Join(missing, ", "))
 		}
-		printRepoGetHint(missing)
-		confirm, err := promptConfirm(fmt.Sprintf("repo get required for %d repos. run now?", len(missing)))
+		fmt.Fprintf(os.Stdout, "%srepo get required for %d repos.\n", output.Indent, len(missing))
+		printRepoGetCommands(missing)
+		confirm, err := promptConfirm("run now?")
 		if err != nil {
 			return err
 		}
@@ -400,7 +402,7 @@ func printWorkspaceTree(wsDir string) error {
 		names = append(names, entry.Name())
 	}
 	if len(names) == 0 {
-		fmt.Fprintf(os.Stdout, "\x1b[33m%s\x1b[0m\n", wsDir)
+		fmt.Fprintf(os.Stdout, "%s\x1b[33m%s\x1b[0m\n", output.Indent, wsDir)
 		return nil
 	}
 	fmt.Fprintf(os.Stdout, "%s\x1b[33m%s\x1b[0m\n", output.Indent, wsDir)
@@ -425,6 +427,7 @@ func promptText(label string, required bool) (string, error) {
 	prompt := promptui.Prompt{
 		Label:    label,
 		Validate: validate,
+		Stdout:   output.NewIndentWriter(os.Stdout),
 		Templates: &promptui.PromptTemplates{
 			Prompt:  "{{ . }}: ",
 			Valid:   "{{ . }}: ",
@@ -460,6 +463,7 @@ func promptSelect(label string, items []string) (string, error) {
 		Size:              min(10, len(items)),
 		HideHelp:          false,
 		StartInSearchMode: true,
+		Stdout:            output.NewIndentWriter(os.Stdout),
 		Searcher: func(input string, index int) bool {
 			item := displayItem(items[index])
 			input = strings.ToLower(strings.TrimSpace(input))
@@ -484,9 +488,16 @@ func promptSelect(label string, items []string) (string, error) {
 func promptConfirm(label string) (bool, error) {
 	items := []string{"yes", "no"}
 	sel := promptui.Select{
-		Label: label,
-		Items: items,
-		Size:  len(items),
+		Label:  label,
+		Items:  items,
+		Size:   len(items),
+		Stdout: output.NewIndentWriter(os.Stdout),
+		Templates: &promptui.SelectTemplates{
+			Label:    "{{ . }}",
+			Active:   "> {{ . }}",
+			Inactive: "  {{ . }}",
+			Selected: "{{ . }}",
+		},
 	}
 	_, result, err := sel.Run()
 	if err != nil {
@@ -495,14 +506,10 @@ func promptConfirm(label string) (bool, error) {
 	return result == "yes", nil
 }
 
-func printRepoGetHint(repos []string) {
-	fmt.Fprintln(os.Stdout, "missing repos:")
+func printRepoGetCommands(repos []string) {
+	fmt.Fprintf(os.Stdout, "%scommands:\n", output.Indent)
 	for _, repoSpec := range repos {
-		fmt.Fprintf(os.Stdout, "  - %s\n", repoSpec)
-	}
-	fmt.Fprintln(os.Stdout, "commands:")
-	for _, repoSpec := range repos {
-		fmt.Fprintf(os.Stdout, "  gws repo get %s\n", repoSpec)
+		fmt.Fprintf(os.Stdout, "%sgws repo get %s\n", output.Indent+output.Indent, repoSpec)
 	}
 }
 

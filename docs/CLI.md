@@ -29,6 +29,7 @@
 - `gws repo get <repo>`
 - `gws repo ls`
 - `gws template ls`
+- `gws review <PR URL>`
 
 ## repo
 
@@ -153,3 +154,18 @@ MVP対象:
 - ロック残骸（一定時間以上古い）
 - manifest はあるが worktree が存在しない
 - repo store はあるが remote が取れない
+
+## review
+
+### gws review <PR URL>
+目的:
+- PR レビュー専用の導線で workspace を作成する
+
+挙動:
+1. PR URL から repo/番号/ブランチ情報を取得（GitHub のみ）
+2. repo store が未取得なら `repo get` と同等の導線で取得（対話）
+3. workspace を作成し、PR の head から worktree を作成
+
+制約:
+- GitHub のみ（fork PR は対象外）
+- 既存 workspace がある場合はエラー
