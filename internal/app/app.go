@@ -1573,18 +1573,40 @@ func writeInitJSON(result initcmd.Result) error {
 }
 
 func writeInitText(result initcmd.Result) {
-	fmt.Fprintf(os.Stdout, "root: %s\n", result.RootDir)
-	for _, dir := range result.CreatedDirs {
-		fmt.Fprintf(os.Stdout, "created\t%s\n", dir)
+	theme := ui.DefaultTheme()
+	useColor := isatty.IsTerminal(os.Stdout.Fd())
+	renderer := ui.NewRenderer(os.Stdout, theme, useColor)
+
+	renderer.Header("gws init")
+	renderer.Blank()
+	renderer.Section("Steps")
+	if len(result.CreatedDirs) == 0 && len(result.CreatedFiles) == 0 {
+		renderer.Bullet("no changes")
+	} else {
+		for _, dir := range result.CreatedDirs {
+			renderer.Bullet(fmt.Sprintf("create dir %s", dir))
+		}
+		for _, file := range result.CreatedFiles {
+			renderer.Bullet(fmt.Sprintf("create file %s", file))
+		}
 	}
-	for _, file := range result.CreatedFiles {
-		fmt.Fprintf(os.Stdout, "created\t%s\n", file)
-	}
+
+	renderer.Blank()
+	renderer.Section("Result")
+	renderer.Result(fmt.Sprintf("root: %s", result.RootDir))
+
+	var skipped []string
 	for _, dir := range result.SkippedDirs {
-		fmt.Fprintf(os.Stdout, "exists\t%s\n", dir)
+		skipped = append(skipped, fmt.Sprintf("dir: %s", dir))
 	}
 	for _, file := range result.SkippedFiles {
-		fmt.Fprintf(os.Stdout, "exists\t%s\n", file)
+		skipped = append(skipped, fmt.Sprintf("file: %s", file))
+	}
+	if len(skipped) > 0 {
+		renderer.Blank()
+		renderer.Section("Info")
+		renderer.Bullet("already exists")
+		renderTreeLines(renderer, skipped, treeLineNormal)
 	}
 }
 
