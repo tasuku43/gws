@@ -91,8 +91,8 @@ func writeTemplates(path string) error {
 		}{
 			"example": {
 				Repos: []string{
-					"git@github.com:github/docs.git",
-					"git@github.com:github/opensource.guide.git",
+					"git@github.com:octocat/Hello-World.git",
+					"git@github.com:octocat/Spoon-Knife.git",
 				},
 			},
 		},
