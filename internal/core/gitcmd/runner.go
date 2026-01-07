@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/tasuku43/gws/internal/output"
+	"github.com/tasuku43/gws/internal/core/output"
 )
 
 type Result struct {

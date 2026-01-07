@@ -1,4 +1,4 @@
-package integration
+package workspace_test
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tasuku43/gws/internal/repo"
-	"github.com/tasuku43/gws/internal/workspace"
+	"github.com/tasuku43/gws/internal/domain/repo"
+	"github.com/tasuku43/gws/internal/domain/workspace"
 )
 
 func TestRepoGetWorkspaceAddRemove(t *testing.T) {

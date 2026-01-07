@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tasuku43/gws/internal/gitcmd"
-	"github.com/tasuku43/gws/internal/repospec"
+	"github.com/tasuku43/gws/internal/core/gitcmd"
+	"github.com/tasuku43/gws/internal/domain/repospec"
 )
 
 type Store struct {

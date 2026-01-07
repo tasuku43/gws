@@ -37,8 +37,7 @@
 Only implement:
 - repo: get / ls
 - workspace: new / add / ls / status / rm
-- gc: dry-run + run (safe guard)
-- doctor: minimal checks (stale locks, missing worktrees, inconsistency hints)
+- doctor: minimal checks (missing remote, non-git workspace entries)
 
 ## How to proceed on a task
 - Implement the smallest correct change to satisfy acceptance criteria.

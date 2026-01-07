@@ -1,4 +1,4 @@
-package app
+package cli
 
 import (
 	"bytes"
@@ -16,17 +16,16 @@ import (
 	"time"
 
 	"github.com/mattn/go-isatty"
-	"github.com/tasuku43/gws/internal/doctor"
-	"github.com/tasuku43/gws/internal/gc"
-	"github.com/tasuku43/gws/internal/gitcmd"
-	"github.com/tasuku43/gws/internal/initcmd"
-	"github.com/tasuku43/gws/internal/output"
-	"github.com/tasuku43/gws/internal/paths"
-	"github.com/tasuku43/gws/internal/repo"
-	"github.com/tasuku43/gws/internal/repospec"
-	"github.com/tasuku43/gws/internal/template"
+	"github.com/tasuku43/gws/internal/core/gitcmd"
+	"github.com/tasuku43/gws/internal/core/output"
+	"github.com/tasuku43/gws/internal/core/paths"
+	"github.com/tasuku43/gws/internal/domain/repo"
+	"github.com/tasuku43/gws/internal/domain/repospec"
+	"github.com/tasuku43/gws/internal/domain/template"
+	"github.com/tasuku43/gws/internal/domain/workspace"
+	"github.com/tasuku43/gws/internal/ops/doctor"
+	"github.com/tasuku43/gws/internal/ops/initcmd"
 	"github.com/tasuku43/gws/internal/ui"
-	"github.com/tasuku43/gws/internal/workspace"
 )
 
 const defaultRepoProtocol = "ssh"
@@ -87,8 +86,6 @@ func Run() error {
 		return runInit(rootDir, args[1:])
 	case "doctor":
 		return runDoctor(ctx, rootDir, args[1:])
-	case "gc":
-		return runGC(ctx, rootDir, args[1:])
 	case "repo":
 		return runRepo(ctx, rootDir, args[1:])
 	case "template":
@@ -211,57 +208,6 @@ func runDoctor(ctx context.Context, rootDir string, args []string) error {
 	return nil
 }
 
-func runGC(ctx context.Context, rootDir string, args []string) error {
-	gcFlags := flag.NewFlagSet("gc", flag.ContinueOnError)
-	var dryRun bool
-	var older string
-	var helpFlag bool
-	gcFlags.SetOutput(os.Stdout)
-	gcFlags.Usage = func() {
-		printGCHelp(os.Stdout)
-	}
-	gcFlags.BoolVar(&dryRun, "dry-run", false, "only list candidates")
-	gcFlags.StringVar(&older, "older", "", "older than duration (e.g. 30d, 720h)")
-	gcFlags.BoolVar(&helpFlag, "help", false, "show help")
-	gcFlags.BoolVar(&helpFlag, "h", false, "show help")
-	if err := gcFlags.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return nil
-		}
-		return err
-	}
-	if helpFlag {
-		printGCHelp(os.Stdout)
-		return nil
-	}
-	if gcFlags.NArg() != 0 {
-		return fmt.Errorf("usage: gws gc [--dry-run] [--older <duration>]")
-	}
-
-	olderThan, err := parseOlder(older)
-	if err != nil {
-		return err
-	}
-
-	opts := gc.Options{OlderThan: olderThan}
-	now := time.Now().UTC()
-	if dryRun {
-		result, err := gc.DryRun(ctx, rootDir, opts, now)
-		if err != nil {
-			return err
-		}
-		writeGCText(result, true, older)
-		return nil
-	}
-
-	result, err := gc.Run(ctx, rootDir, opts, now)
-	if err != nil {
-		return err
-	}
-	writeGCText(result, false, older)
-	return nil
-}
-
 func runRepo(ctx context.Context, rootDir string, args []string) error {
 	if len(args) == 0 || isHelpArg(args[0]) {
 		printRepoHelp(os.Stdout)
@@ -297,9 +243,7 @@ func runRepoGet(ctx context.Context, rootDir string, args []string) error {
 	defer output.SetStepLogger(nil)
 
 	header := fmt.Sprintf("gws repo get (%s)", truncateMiddle(repoSpec, 80))
-	renderer.Header(header)
-	renderer.Blank()
-	renderer.Section("Steps")
+	startSteps(renderer, header, true)
 	output.Step(formatStep("repo get", displayRepoSpec(repoSpec), repoDestForSpec(rootDir, repoSpec)))
 
 	store, err := repo.Get(ctx, rootDir, repoSpec)
@@ -402,35 +346,9 @@ func runWorkspaceNew(ctx context.Context, rootDir string, args []string, noPromp
 	if len(headerParts) > 0 {
 		header = fmt.Sprintf("%s (%s)", header, strings.Join(headerParts, ", "))
 	}
-	if !prompted {
-		renderer.Header(header)
-		renderer.Blank()
-	} else {
-		renderer.Blank()
-	}
-	renderer.Section("Steps")
-
-	if len(missing) > 0 {
-		if noPrompt {
-			return fmt.Errorf("repo get required for: %s", strings.Join(missing, ", "))
-		}
-		output.Step(fmt.Sprintf("repo get required for %d repos", len(missing)))
-		for _, repoSpec := range missing {
-			output.Log(fmt.Sprintf("gws repo get %s", displayRepoSpec(repoSpec)))
-		}
-		confirm, err := ui.PromptConfirmInline("run now?", theme, useColor)
-		if err != nil {
-			return err
-		}
-		if !confirm {
-			return fmt.Errorf("repo get required for: %s", strings.Join(missing, ", "))
-		}
-		for i, repoSpec := range missing {
-			output.Step(formatStepWithIndex("repo get", displayRepoSpec(repoSpec), repoDestForSpec(rootDir, repoSpec), i+1, len(missing)))
-			if _, err := repo.Get(ctx, rootDir, repoSpec); err != nil {
-				return err
-			}
-		}
+	startSteps(renderer, header, !prompted)
+	if err := ensureRepoGet(ctx, rootDir, missing, noPrompt, theme, useColor); err != nil {
+		return err
 	}
 
 	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "workspaces", workspaceID))))
@@ -448,7 +366,7 @@ func runWorkspaceNew(ctx context.Context, rootDir string, args []string, noPromp
 
 	renderer.Blank()
 	renderer.Section("Result")
-	repos, _ := loadWorkspaceRepos(wsDir)
+	repos, _, _ := loadWorkspaceRepos(ctx, wsDir)
 	renderWorkspaceBlock(renderer, workspaceID, repos)
 	renderSuggestion(renderer, useColor, wsDir)
 	return nil
@@ -486,7 +404,7 @@ func runWorkspaceAdd(ctx context.Context, rootDir string, args []string) error {
 		if len(wsWarn) > 0 {
 			// ignore warnings for selection
 		}
-		workspaceChoices := buildWorkspaceChoices(workspaces)
+		workspaceChoices := buildWorkspaceChoices(ctx, workspaces)
 		if len(workspaceChoices) == 0 {
 			return fmt.Errorf("no workspaces found")
 		}
@@ -524,20 +442,14 @@ func runWorkspaceAdd(ctx context.Context, rootDir string, args []string) error {
 	if len(headerParts) > 0 {
 		header = fmt.Sprintf("%s (%s)", header, strings.Join(headerParts, ", "))
 	}
-	if !prompted {
-		renderer.Header(header)
-		renderer.Blank()
-	} else {
-		renderer.Blank()
-	}
-	renderer.Section("Steps")
+	startSteps(renderer, header, !prompted)
 	output.Step(formatStep("worktree add", displayRepoName(repoSpec), worktreeDest(rootDir, workspaceID, repoSpec)))
 
 	if _, err := workspace.Add(ctx, rootDir, workspaceID, repoSpec, "", false); err != nil {
 		return err
 	}
 	wsDir := filepath.Join(rootDir, "workspaces", workspaceID)
-	repos, _ := loadWorkspaceRepos(wsDir)
+	repos, _, _ := loadWorkspaceRepos(ctx, wsDir)
 	renderer.Blank()
 	renderer.Section("Result")
 	renderWorkspaceBlock(renderer, workspaceID, repos)
@@ -600,20 +512,7 @@ func runReview(ctx context.Context, rootDir string, args []string, noPrompt bool
 	renderer.Section("Steps")
 
 	if !exists {
-		if noPrompt {
-			return fmt.Errorf("repo get required for: %s", repoURL)
-		}
-		output.Step("repo get required for 1 repo")
-		output.Log(fmt.Sprintf("gws repo get %s", displayRepoSpec(repoURL)))
-		confirm, err := ui.PromptConfirmInline("run now?", theme, useColor)
-		if err != nil {
-			return err
-		}
-		if !confirm {
-			return fmt.Errorf("repo get required for: %s", repoURL)
-		}
-		output.Step(formatStep("repo get", displayRepoSpec(repoURL), repoDestForSpec(rootDir, repoURL)))
-		if _, err := repo.Get(ctx, rootDir, repoURL); err != nil {
+		if err := ensureRepoGet(ctx, rootDir, []string{repoURL}, noPrompt, theme, useColor); err != nil {
 			return err
 		}
 	}
@@ -644,7 +543,7 @@ func runReview(ctx context.Context, rootDir string, args []string, noPrompt bool
 
 	renderer.Blank()
 	renderer.Section("Result")
-	repos, _ := loadWorkspaceRepos(wsDir)
+	repos, _, _ := loadWorkspaceRepos(ctx, wsDir)
 	renderWorkspaceBlock(renderer, workspaceID, repos)
 	renderSuggestion(renderer, useColor, wsDir)
 	return nil
@@ -792,18 +691,13 @@ func renderWorkspaceRepos(r *ui.Renderer, repos []workspace.Repo, extraIndent st
 		if i == len(repos)-1 {
 			prefix = "└─ "
 		}
-		name := repo.Alias
-		if strings.TrimSpace(name) == "" {
-			name = repo.RepoKey
-		}
+		name := formatRepoName(repo.Alias, repo.RepoKey)
 		if r != nil {
 			r.TreeLineBranchMuted(extraIndent+prefix, name, repo.Branch)
 			continue
 		}
-		line := fmt.Sprintf("%s%s%s%s", output.Indent, extraIndent, prefix, name)
-		if strings.TrimSpace(repo.Branch) != "" {
-			line += fmt.Sprintf(" (branch: %s)", repo.Branch)
-		}
+		label := formatRepoLabel(name, repo.Branch)
+		line := fmt.Sprintf("%s%s%s%s", output.Indent, extraIndent, prefix, label)
 		fmt.Fprintln(os.Stdout, line)
 	}
 }
@@ -818,48 +712,31 @@ func renderWorkspaceBlock(r *ui.Renderer, workspaceID string, repos []workspace.
 	renderWorkspaceRepos(nil, repos, output.Indent)
 }
 
-func loadWorkspaceRepos(wsDir string) ([]workspace.Repo, error) {
-	manifestPath := filepath.Join(wsDir, ".gws", "manifest.yaml")
-	manifest, err := workspace.LoadManifest(manifestPath)
-	if err == nil {
-		return manifest.Repos, nil
-	}
-	entries, err := os.ReadDir(wsDir)
+func loadWorkspaceRepos(ctx context.Context, wsDir string) ([]workspace.Repo, []error, error) {
+	repos, warnings, err := workspace.ScanRepos(ctx, wsDir)
 	if err != nil {
-		return nil, fmt.Errorf("read workspace dir: %w", err)
+		return nil, warnings, err
 	}
-	var repos []workspace.Repo
-	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == ".gws" {
-			continue
-		}
-		repos = append(repos, workspace.Repo{Alias: entry.Name()})
-	}
-	return repos, nil
+	return repos, warnings, nil
 }
 
-func buildWorkspaceChoices(entries []workspace.Entry) []ui.WorkspaceChoice {
+func buildWorkspaceChoices(ctx context.Context, entries []workspace.Entry) []ui.WorkspaceChoice {
 	var choices []ui.WorkspaceChoice
 	for _, entry := range entries {
-		choices = append(choices, buildWorkspaceChoice(entry))
+		choices = append(choices, buildWorkspaceChoice(ctx, entry))
 	}
 	return choices
 }
 
-func buildWorkspaceChoice(entry workspace.Entry) ui.WorkspaceChoice {
+func buildWorkspaceChoice(ctx context.Context, entry workspace.Entry) ui.WorkspaceChoice {
 	choice := ui.WorkspaceChoice{ID: entry.WorkspaceID}
-	if entry.Manifest == nil {
+	repos, _, err := workspace.ScanRepos(ctx, entry.WorkspacePath)
+	if err != nil {
 		return choice
 	}
-	for _, repoEntry := range entry.Manifest.Repos {
-		name := repoEntry.Alias
-		if strings.TrimSpace(name) == "" {
-			name = repoEntry.RepoKey
-		}
-		label := name
-		if strings.TrimSpace(repoEntry.Branch) != "" {
-			label = fmt.Sprintf("%s (branch: %s)", name, repoEntry.Branch)
-		}
+	for _, repoEntry := range repos {
+		name := formatRepoName(repoEntry.Alias, repoEntry.RepoKey)
+		label := formatRepoLabel(name, repoEntry.Branch)
 		choice.Repos = append(choice.Repos, ui.PromptChoice{
 			Label: label,
 			Value: displayRepoKey(repoEntry.RepoKey),
@@ -995,6 +872,60 @@ func truncateMiddle(value string, max int) string {
 	return fmt.Sprintf("%s...%s", trimmed[:keep], trimmed[len(trimmed)-keep:])
 }
 
+func startSteps(renderer *ui.Renderer, header string, showHeader bool) {
+	if renderer == nil {
+		return
+	}
+	if showHeader && strings.TrimSpace(header) != "" {
+		renderer.Header(header)
+		renderer.Blank()
+	} else {
+		renderer.Blank()
+	}
+	renderer.Section("Steps")
+}
+
+func ensureRepoGet(ctx context.Context, rootDir string, repoSpecs []string, noPrompt bool, theme ui.Theme, useColor bool) error {
+	if len(repoSpecs) == 0 {
+		return nil
+	}
+	var missing []string
+	for _, repoSpec := range repoSpecs {
+		if strings.TrimSpace(repoSpec) == "" {
+			continue
+		}
+		missing = append(missing, repoSpec)
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	if noPrompt {
+		return fmt.Errorf("repo get required for: %s", strings.Join(missing, ", "))
+	}
+	label := "repos"
+	if len(missing) == 1 {
+		label = "repo"
+	}
+	output.Step(fmt.Sprintf("repo get required for %d %s", len(missing), label))
+	for _, repoSpec := range missing {
+		output.Log(fmt.Sprintf("gws repo get %s", displayRepoSpec(repoSpec)))
+	}
+	confirm, err := ui.PromptConfirmInline("run now?", theme, useColor)
+	if err != nil {
+		return err
+	}
+	if !confirm {
+		return fmt.Errorf("repo get required for: %s", strings.Join(missing, ", "))
+	}
+	for i, repoSpec := range missing {
+		output.Step(formatStepWithIndex("repo get", displayRepoSpec(repoSpec), repoDestForSpec(rootDir, repoSpec), i+1, len(missing)))
+		if _, err := repo.Get(ctx, rootDir, repoSpec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func renderSuggestion(r *ui.Renderer, useColor bool, path string) {
 	if strings.TrimSpace(path) == "" {
 		return
@@ -1092,6 +1023,9 @@ func collectRemoveWarnings(ctx context.Context, rootDir, workspaceID string) []s
 
 func buildRemoveWarnings(status workspace.StatusResult) []string {
 	var warnings []string
+	for _, warning := range status.Warnings {
+		warnings = append(warnings, compactError(warning))
+	}
 	for _, repo := range status.Repos {
 		name := strings.TrimSpace(repo.Alias)
 		if name == "" && strings.TrimSpace(repo.WorktreePath) != "" {
@@ -1154,13 +1088,51 @@ func renderTreeLines(r *ui.Renderer, lines []string, style treeLineStyle) {
 	}
 }
 
+func renderWarningsSection(r *ui.Renderer, title string, warnings []string, leadBlank bool) {
+	if r == nil || len(warnings) == 0 {
+		return
+	}
+	if leadBlank {
+		r.Blank()
+	}
+	r.Section("Info")
+	r.Bullet(title)
+	renderTreeLines(r, warnings, treeLineWarn)
+}
+
+func formatRepoName(alias, repoKey string) string {
+	name := strings.TrimSpace(alias)
+	if name != "" {
+		return name
+	}
+	return repoKey
+}
+
+func formatRepoLabel(name, branch string) string {
+	if strings.TrimSpace(branch) != "" {
+		return fmt.Sprintf("%s (branch: %s)", name, branch)
+	}
+	return name
+}
+
+func appendWarningLines(lines []string, prefix string, warnings []error) []string {
+	for _, warning := range warnings {
+		message := compactError(warning)
+		if strings.TrimSpace(prefix) != "" {
+			message = fmt.Sprintf("%s: %s", prefix, message)
+		}
+		lines = append(lines, message)
+	}
+	return lines
+}
+
 func classifyWorkspaceRemoval(ctx context.Context, rootDir string, entries []workspace.Entry) ([]ui.WorkspaceChoice, []ui.BlockedChoice) {
 	var removable []ui.WorkspaceChoice
 	var blocked []ui.BlockedChoice
 	for _, entry := range entries {
 		reason := workspaceRemoveReason(ctx, rootDir, entry)
 		if strings.TrimSpace(reason) == "" {
-			removable = append(removable, buildWorkspaceChoice(entry))
+			removable = append(removable, buildWorkspaceChoice(ctx, entry))
 			continue
 		}
 		blocked = append(blocked, ui.BlockedChoice{
@@ -1171,9 +1143,6 @@ func classifyWorkspaceRemoval(ctx context.Context, rootDir string, entries []wor
 }
 
 func workspaceRemoveReason(ctx context.Context, rootDir string, entry workspace.Entry) string {
-	if entry.Warning != nil {
-		return fmt.Sprintf("manifest: %s", compactError(entry.Warning))
-	}
 	status, err := workspace.Status(ctx, rootDir, entry.WorkspaceID)
 	if err != nil {
 		return fmt.Sprintf("status: %s", compactError(err))
@@ -1279,7 +1248,7 @@ func runWorkspaceList(ctx context.Context, rootDir string, args []string) error 
 	if err != nil {
 		return err
 	}
-	writeWorkspaceListText(entries, warnings)
+	writeWorkspaceListText(ctx, entries, warnings)
 	return nil
 }
 
@@ -1304,7 +1273,7 @@ func runWorkspaceStatus(ctx context.Context, rootDir string, args []string) erro
 		if len(wsWarn) > 0 {
 			// ignore warnings for selection
 		}
-		workspaceChoices := buildWorkspaceChoices(workspaces)
+		workspaceChoices := buildWorkspaceChoices(ctx, workspaces)
 		if len(workspaceChoices) == 0 {
 			return fmt.Errorf("no workspaces found")
 		}
@@ -1392,9 +1361,7 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 	}
 	removeWarnings := collectRemoveWarnings(ctx, rootDir, workspaceID)
 	if len(removeWarnings) > 0 {
-		renderer.Section("Info")
-		renderer.Bullet("possible unpushed commits")
-		renderTreeLines(renderer, removeWarnings, treeLineWarn)
+		renderWarningsSection(renderer, "possible unpushed commits", removeWarnings, false)
 		renderer.Blank()
 	}
 	renderer.Section("Steps")
@@ -1454,9 +1421,11 @@ func writeWorkspaceStatusText(result workspace.StatusResult, showHeader bool) {
 			renderer.Warn(fmt.Sprintf("warning: %s: %v", repo.Alias, repo.Error))
 		}
 	}
+	warningLines := appendWarningLines(nil, "", result.Warnings)
+	renderWarningsSection(renderer, "warnings", warningLines, true)
 }
 
-func writeWorkspaceListText(entries []workspace.Entry, warnings []error) {
+func writeWorkspaceListText(ctx context.Context, entries []workspace.Entry, warnings []error) {
 	theme := ui.DefaultTheme()
 	useColor := isatty.IsTerminal(os.Stdout.Fd())
 	renderer := ui.NewRenderer(os.Stdout, theme, useColor)
@@ -1464,29 +1433,17 @@ func writeWorkspaceListText(entries []workspace.Entry, warnings []error) {
 	renderer.Header("gws ls")
 	renderer.Blank()
 	renderer.Section("Result")
+	var repoWarnings []string
 	for _, entry := range entries {
-		var repos []workspace.Repo
-		if entry.Manifest != nil {
-			repos = entry.Manifest.Repos
+		repos, warnings, err := workspace.ScanRepos(ctx, entry.WorkspacePath)
+		if err != nil {
+			repoWarnings = append(repoWarnings, fmt.Sprintf("%s: %s", entry.WorkspaceID, compactError(err)))
 		}
-
+		repoWarnings = appendWarningLines(repoWarnings, entry.WorkspaceID, warnings)
 		renderWorkspaceBlock(renderer, entry.WorkspaceID, repos)
-
-		if entry.Warning != nil {
-			renderer.Bullet(fmt.Sprintf("%s warning", entry.WorkspaceID))
-			renderTreeLines(renderer, []string{entry.Warning.Error()}, treeLineWarn)
-		}
 	}
-	if len(warnings) > 0 {
-		renderer.Blank()
-		renderer.Section("Info")
-		renderer.Bullet("warnings")
-		var lines []string
-		for _, warning := range warnings {
-			lines = append(lines, warning.Error())
-		}
-		renderTreeLines(renderer, lines, treeLineWarn)
-	}
+	repoWarnings = appendWarningLines(repoWarnings, "", warnings)
+	renderWarningsSection(renderer, "warnings", repoWarnings, true)
 }
 
 func writeRepoListText(entries []repo.Entry, warnings []error) {
@@ -1500,16 +1457,8 @@ func writeRepoListText(entries []repo.Entry, warnings []error) {
 	for _, entry := range entries {
 		renderer.Result(fmt.Sprintf("%s\t%s", entry.RepoKey, entry.StorePath))
 	}
-	if len(warnings) > 0 {
-		renderer.Blank()
-		renderer.Section("Info")
-		renderer.Bullet("warnings")
-		var lines []string
-		for _, warning := range warnings {
-			lines = append(lines, warning.Error())
-		}
-		renderTreeLines(renderer, lines, treeLineWarn)
-	}
+	warningLines := appendWarningLines(nil, "", warnings)
+	renderWarningsSection(renderer, "warnings", warningLines, true)
 }
 
 func writeTemplateListText(file template.File, names []string) {
@@ -1589,45 +1538,6 @@ func writeInitText(result initcmd.Result) {
 	renderSuggestions(renderer, useColor, []string{
 		fmt.Sprintf("Edit templates.yaml: %s", filepath.Join(result.RootDir, "templates.yaml")),
 	})
-}
-func writeGCText(result gc.Result, dryRun bool, older string) {
-	action := "gc"
-	if dryRun {
-		action = "gc --dry-run"
-	}
-	if strings.TrimSpace(older) != "" {
-		fmt.Fprintf(os.Stdout, "%s (older=%s)\n", action, older)
-	}
-	fmt.Fprintln(os.Stdout, "id\tlast_used_at\treason\tpath")
-	for _, candidate := range result.Candidates {
-		fmt.Fprintf(os.Stdout, "%s\t%s\t%s\t%s\n", candidate.WorkspaceID, candidate.LastUsedAt, candidate.Reason, candidate.WorkspacePath)
-	}
-	for _, warning := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %v\n", warning)
-	}
-}
-
-func parseOlder(value string) (time.Duration, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return 0, nil
-	}
-	if strings.HasSuffix(trimmed, "d") {
-		raw := strings.TrimSuffix(trimmed, "d")
-		days, err := strconv.Atoi(raw)
-		if err != nil {
-			return 0, fmt.Errorf("invalid --older value: %s", value)
-		}
-		if days < 0 {
-			return 0, fmt.Errorf("invalid --older value: %s", value)
-		}
-		return time.Duration(days) * 24 * time.Hour, nil
-	}
-	parsed, err := time.ParseDuration(trimmed)
-	if err != nil {
-		return 0, fmt.Errorf("invalid --older value: %s", value)
-	}
-	return parsed, nil
 }
 func writeDoctorText(result doctor.Result, fixed []string) {
 	theme := ui.DefaultTheme()

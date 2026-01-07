@@ -5,12 +5,12 @@ import (
 	"os"
 
 	"github.com/mattn/go-isatty"
-	"github.com/tasuku43/gws/internal/app"
+	"github.com/tasuku43/gws/internal/cli"
 	"github.com/tasuku43/gws/internal/ui"
 )
 
 func main() {
-	if err := app.Run(); err != nil {
+	if err := cli.Run(); err != nil {
 		if isatty.IsTerminal(os.Stderr.Fd()) {
 			theme := ui.DefaultTheme()
 			renderer := ui.NewRenderer(os.Stderr, theme, true)

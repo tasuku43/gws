@@ -25,7 +25,6 @@
 - `gws ls`
 - `gws status <ID>`
 - `gws rm <ID>`
-- `gws gc [--dry-run] [--older <duration>]`
 - `gws doctor [--fix]`
 - `gws init`
 - `gws repo get <repo>`
@@ -81,7 +80,7 @@ MVP出力:
 
 ### gws new [--template <name>] [<WORKSPACE_ID>]
 目的:
-  - `$GWS_ROOT/workspaces/<id>/` と `.gws/manifest.yaml` を作成
+- `$GWS_ROOT/workspaces/<id>/` を作成
 
 制約:
 - WORKSPACE_ID は Git ブランチ名として妥当な文字列であること（refname check）
@@ -99,8 +98,7 @@ MVP出力:
 1. repo get 済みであることを前提に store を最新化（未取得ならエラー）
 2. `<workspaces>/<id>/<repo_name>` を作業ディレクトリとして決定
 3. ブランチが存在しない場合は base_ref から作成して worktree add
-4. manifest に追記
-5. last_used_at を更新
+4. workspace 配下に worktree を作成
 
 テンプレート適用時の repo get:
 - 未取得 repo がある場合、対話で `repo get` を実行して続行するか確認する
@@ -111,7 +109,7 @@ MVP出力:
 
 ### gws ls
 目的:
-- workspace 一覧（MVPはディレクトリ走査 + manifest読取）
+workspace 一覧（MVPはディレクトリ走査）
 
 ### gws status <WORKSPACE_ID>
 目的:
@@ -129,23 +127,11 @@ MVPで返す最小項目:
 - workspace を安全に削除
 
 挙動:
-1. workspace lock 取得
-2. 各 repo の worktree remove（git経由）
-3. workspace ディレクトリ削除
+1. 各 repo の worktree remove（git経由）
+2. workspace ディレクトリ削除
 
 安全ガード:
 - dirty なら拒否（既定）
-- `--nuke` でのみ強制削除（MVPでは `--nuke` 未実装でも可）
-
-## gc
-
-### gws gc [--dry-run] [--older <duration>]
-目的:
-- stale workspace を列挙し、回収する
-
-stale 判定（MVP）:
-- manifest.last_used_at が `--older` を超える
-- または policy.ttl_days を超える
 
 ## doctor
 
@@ -154,8 +140,6 @@ stale 判定（MVP）:
 - よくある壊れ方を検出する
 
 MVP対象:
-- ロック残骸（一定時間以上古い）
-- manifest はあるが worktree が存在しない
 - repo store はあるが remote が取れない
 
 ## review

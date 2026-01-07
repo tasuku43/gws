@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tasuku43/gws/internal/gitcmd"
+	"github.com/tasuku43/gws/internal/core/gitcmd"
 )
 
 func Remove(ctx context.Context, rootDir, workspaceID string) error {
@@ -24,13 +24,13 @@ func Remove(ctx context.Context, rootDir, workspaceID string) error {
 		return fmt.Errorf("workspace does not exist: %s", wsDir)
 	}
 
-	manifestPath := filepath.Join(wsDir, manifestDirName, manifestFileName)
-	manifest, err := LoadManifest(manifestPath)
+	repos, warnings, err := ScanRepos(ctx, wsDir)
 	if err != nil {
 		return err
 	}
+	_ = warnings
 
-	for _, repo := range manifest.Repos {
+	for _, repo := range repos {
 		if repo.WorktreePath == "" {
 			return fmt.Errorf("missing worktree path for alias %q", repo.Alias)
 		}
@@ -44,9 +44,9 @@ func Remove(ctx context.Context, rootDir, workspaceID string) error {
 		}
 	}
 
-	for _, repo := range manifest.Repos {
+	for _, repo := range repos {
 		if repo.StorePath == "" {
-			return fmt.Errorf("missing store path for alias %q", repo.Alias)
+			continue
 		}
 		if repo.WorktreePath == "" {
 			return fmt.Errorf("missing worktree path for alias %q", repo.Alias)

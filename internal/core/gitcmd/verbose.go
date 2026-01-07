@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tasuku43/gws/internal/output"
+	"github.com/tasuku43/gws/internal/core/output"
 )
 
 var verbose bool

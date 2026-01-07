@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tasuku43/gws/internal/output"
+	"github.com/tasuku43/gws/internal/core/output"
 )
 
 type Renderer struct {

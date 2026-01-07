@@ -11,13 +11,6 @@
 - `$GWS_ROOT/workspaces/`     : workspace (AI)
 - `$GWS_ROOT/workspaces/<ID>/`:
     - `<alias>/`        : worktree 作業ディレクトリ
-    - `.gws/`           : gws 管理メタ
-
-## workspace メタ
-- `$GWS_ROOT/workspaces/<ID>/.gws/manifest.yaml`（意図）
-- `$GWS_ROOT/workspaces/<ID>/.gws/state.json`（観測結果。MVPでは任意）
-- `$GWS_ROOT/workspaces/<ID>/.gws/lock`（workspace ロック）
 
 ## repo store のパス
 - `$GWS_ROOT/bare/<host>/<owner>/<repo>.git`
-- `$GWS_ROOT/bare/<host>/<owner>/<repo>.git/.gws/lock`（repo ロック）

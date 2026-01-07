@@ -1,31 +1,164 @@
-# gws — Git Workspaces for Human + Agentic Development
+# gws - Git Workspaces for Human + Agentic Development
 
-gws is a tool that shifts local development in the agentic era from “clone-directory centric” to “workspace centric.”
+gws moves local development from "clone-directory centric" to "workspace centric"
+so humans and multiple AI agents can work in parallel without stepping on each other.
 
-## What it solves
+## Why gws
 
-Traditional local development assumes one repository equals one clone directory edited by humans. In a world where multiple AI agents work in parallel on the same machine, this creates bottlenecks:
+- Keep one canonical Git object store (bare) and spin up task workspaces as worktrees
+- Make "start a task" and "review a PR" repeatable with a single CLI
+- Separate human browsing clones from agent/task worktrees
 
-- Weak isolation by task (artifact mixing, mistakes)
-- Poor control over worktree creation/removal (higher risk)
-- No clear overview of which workspace belongs to which task, making cleanup (GC) scary
+## Requirements
 
-gws keeps a bare repo as the “master” and ensures all work happens in worktrees under workspaces.
+- Git
+- Go 1.24+ (build/run from source)
+- gh CLI (only for `gws review`)
 
-## Quickstart (assumed)
+## Quickstart (5 minutes)
+
+### 1) Initialize the root
 
 ```bash
-# Root (optional)
-export GWS_ROOT=~/work   # Defaults to ~/gws if unset
+gws init
+```
 
-# Create a workspace (workspace_id must be a valid branch name)
-gws new PROJ-1234
+This creates `GWS_ROOT` with the standard layout and a starter `templates.yaml`.
 
-# Add repos (create worktrees under the workspace)
-gws add PROJ-1234 git@github.com:org/backend.git --alias backend
-gws add PROJ-1234 git@github.com:org/frontend.git --alias frontend
+### 2) Define templates
 
-# Check status
-gws status PROJ-1234
+Edit `templates.yaml` and list the repos you want in a workspace:
+
+```yaml
+templates:
+  example:
+    repos:
+      - git@github.com:github/docs.git
+      - git@github.com:github/opensource.guide.git
+```
+
+### 3) Fetch repos (bare + src)
+
+```bash
+gws repo get git@github.com:github/docs.git
+gws repo get git@github.com:github/opensource.guide.git
+```
+
+### 4) Create a workspace
+
+```bash
+gws new --template example MY-123
+```
+
+Or run `gws new` with no args to select a template and workspace id interactively.
+
+### 5) Work and clean up
+
+```bash
+gws ls
+gws status MY-123
+gws rm MY-123
+```
+
+gws prints the workspace path so you can `cd` into it.
+
+## Review a PR (GitHub)
+
+```bash
+gws review https://github.com/owner/repo/pull/123
+```
+
+- Creates `REVIEW-PR-123`
+- Checks out the PR head branch in the workspace
+- Requires `gh` to be authenticated
+
+Fork PRs are not supported in MVP.
+
+## How gws lays out files
+
+gws keeps three top-level directories under `GWS_ROOT`:
 
 ```
+GWS_ROOT/
+  bare/        # bare repo store (shared Git objects)
+  src/         # normal clones for human browsing
+  workspaces/  # task worktrees (one folder per workspace id)
+  templates.yaml
+```
+
+Notes:
+
+- Workspace id must be a valid Git branch name, and it becomes the worktree branch name.
+- `src/` is a regular clone and does not share local branches with `workspaces/`.
+- gws never changes your shell directory automatically.
+
+## Root resolution
+
+gws resolves `GWS_ROOT` in this order:
+
+1. `--root <path>`
+2. `GWS_ROOT` environment variable
+3. `~/gws`
+
+## Command overview
+
+Core workflow:
+
+- `gws init` - create root structure and `templates.yaml`
+- `gws repo get <repo>` - create/update bare repo and a `src/` clone
+- `gws repo ls` - list repos already fetched
+- `gws template ls` - list templates from `templates.yaml`
+- `gws new [--template <name>] [<id>]` - create a workspace from a template
+- `gws add [<id>] [<repo>]` - add another repo worktree to a workspace
+- `gws ls` - list workspaces and repos
+- `gws status [<id>]` - show branch, dirty/untracked, and ahead/behind
+- `gws rm [<id>]` - remove a workspace (refuses if dirty)
+
+Review workflow:
+
+- `gws review <PR URL>` - create a workspace for a GitHub PR
+
+Global flags:
+
+- `--root <path>` - override `GWS_ROOT`
+- `--no-prompt` - disable interactive prompts
+
+## Repo spec format
+
+Only SSH or HTTPS URLs are supported:
+
+```
+# SSH
+git@github.com:owner/repo.git
+
+# HTTPS
+https://github.com/owner/repo.git
+```
+
+## Common tasks
+
+### Add a repo to an existing workspace
+
+```bash
+gws add MY-123 git@github.com:org/another-repo.git
+```
+
+### Remove a workspace safely
+
+```bash
+gws status MY-123
+gws rm MY-123
+```
+
+`gws rm` refuses if the workspace is dirty.
+
+## Help and docs
+
+- `docs/CLI.md` for command details
+- `docs/TEMPLATES.md` for template format
+- `docs/DIRECTORY_LAYOUT.md` for the file layout
+- `docs/UI.md` for output conventions
+
+## Maintainer
+
+- @tasuku43

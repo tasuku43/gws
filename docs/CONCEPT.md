@@ -20,7 +20,6 @@ gws は、作業場を workspace（タスク単位ディレクトリ）へ昇格
 ### ゴール
 - workspace（タスク）単位で作業場を生成し、複数リポジトリを同居させられる
 - “マスター clone” で作業しない（bare repo store に履歴/オブジェクトを集約）
-- worktree の作成・削除・回収（GC）を安全側で統制できる
 - 人間もエージェントも使える（非対話/JSON などの拡張余地を残す）
 
 ### 非ゴール（MVPではやらない）
@@ -52,7 +51,6 @@ gws は、作業場を workspace（タスク単位ディレクトリ）へ昇格
 MVP ではユーザー設定ファイルは持たない（デフォルトはハードコード）。
 
 workspace ローカル:
-- `$GWS_ROOT/workspaces/<WORKSPACE_ID>/.gws/manifest.yaml`
 
 ### 4.2 ルート解決の優先順位
 1. CLI フラグ（例: `--root`）
@@ -69,7 +67,7 @@ workspace ローカル:
 - v0.1 の既定動作として、各 repo の worktree は `branch = workspace_id` を checkout する
 - ブランチが存在しない場合は `origin/HEAD`（もしくは `HEAD`）から自動検出し、必要なら `main/master/develop` を順に探索する
 
-この制約により、従来の「ブランチ中心の体験」を “workspace中心” に置換し、追跡・回収（GC）を単純化する。
+この制約により、従来の「ブランチ中心の体験」を “workspace中心” に置換する。
 
 ## 6. Repo 参照（repo spec）と repo store の配置
 
@@ -96,29 +94,19 @@ repo store の物理パスは下記を基本とする（正規化後）:
 - `gws repo ls`: repo store の一覧
 
 ### 7.2 workspace 操作
-- `gws new <WORKSPACE_ID>`: workspace 作成（manifest 雛形生成）
+- `gws new <WORKSPACE_ID>`: workspace 作成
 - `gws add <WORKSPACE_ID> <repo> --alias <name>`: repo を workspace に追加（worktree 作成）
 - `gws ls`: workspace 一覧
 - `gws status <WORKSPACE_ID>`: workspace 内の各 repo の状態（dirty等）集計
 - `gws rm <WORKSPACE_ID>`: workspace 削除（安全に worktree remove → ディレクトリ削除）
 
 ### 7.3 回収 / 診断
-- `gws gc [--dry-run] [--older <duration>]`: stale workspace の候補提示と回収（安全ガード付き）
-- `gws doctor [--fix]`: ロック残骸、欠損 worktree、参照不整合の検出（可能なら修復）
+- `gws doctor [--fix]`: 参照不整合の検出（可能なら修復）
 
 ## 8. 安全性（Safe by default）
 
 - dirty（未コミット変更）を検出した場合、削除・回収を拒否するのが既定
 - `--dry-run` を重視し、破壊的操作は二段階を推奨
-- “force” と “nuke” は分離（`--force` は対話省略/再実行、`--nuke` は破壊）
-
-## 9. ロック（同時実行対策）
-
-最低限、以下の排他を行う:
-- repo 単位ロック: clone/fetch/worktree add/remove の競合回避
-- workspace 単位ロック: workspace add/rm/gc の競合回避
-
-ロックには owner 情報（pid/host）とタイムアウトを持たせ、doctor で回収できる。
 
 ## 10. 実装方針（Go）
 
@@ -129,11 +117,8 @@ repo store の物理パスは下記を基本とする（正規化後）:
 ## 11. MVP スコープ（確定）
 - repo: get / ls
 - workspace: new / add / ls / status / rm
-- gc: dry-run と実行（安全ガード付き）
-- doctor: 最低限の不整合検出（ロック残骸、欠損worktree、参照不整合の案内）
+- doctor: 最低限の不整合検出（参照不整合の案内）
 
 ## 12. 将来拡張（バックログ）
-- manifest 編集駆動（apply）
 - テンプレート（複数 repo を一発で workspace new）
 - JSON 出力と安定スキーマ（agent 統合を強化）
-- GitHub 連携（PR/Issue ステータスで gc 候補精度を上げる）

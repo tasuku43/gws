@@ -8,11 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tasuku43/gws/internal/repo"
-	"github.com/tasuku43/gws/internal/workspace"
+	"github.com/tasuku43/gws/internal/domain/repo"
+	"github.com/tasuku43/gws/internal/domain/workspace"
 )
-
-const staleLockThreshold = 24 * time.Hour
 
 type Issue struct {
 	Kind    string
@@ -34,7 +32,6 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 	if rootDir == "" {
 		return Result{}, fmt.Errorf("root directory is required")
 	}
-	_ = ctx
 
 	var issues []Issue
 	issues = append(issues, checkRootLayout(rootDir)...)
@@ -45,28 +42,14 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 	}
 
 	for _, entry := range wsEntries {
-		lockPath := filepath.Join(entry.WorkspacePath, ".gws", "lock")
-		if stale, age, ok := staleLock(lockPath, now); ok && stale {
-			issues = append(issues, Issue{
-				Kind:    "stale_lock",
-				Path:    lockPath,
-				Message: fmt.Sprintf("stale workspace lock (age %s)", age),
-			})
-		}
-		if entry.Manifest == nil {
+		repos, warnings, err := workspace.ScanRepos(ctx, entry.WorkspacePath)
+		if err != nil {
+			wsWarnings = append(wsWarnings, fmt.Errorf("workspace %s: %w", entry.WorkspaceID, err))
 			continue
 		}
-		for _, repoEntry := range entry.Manifest.Repos {
-			if repoEntry.WorktreePath == "" {
-				continue
-			}
-			if ok := dirExists(repoEntry.WorktreePath); !ok {
-				issues = append(issues, Issue{
-					Kind:    "missing_worktree",
-					Path:    repoEntry.WorktreePath,
-					Message: fmt.Sprintf("worktree missing for %s", repoEntry.Alias),
-				})
-			}
+		_ = repos
+		for _, warning := range warnings {
+			wsWarnings = append(wsWarnings, fmt.Errorf("workspace %s: %w", entry.WorkspaceID, warning))
 		}
 	}
 
@@ -76,14 +59,6 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 	}
 
 	for _, entry := range repoEntries {
-		lockPath := filepath.Join(entry.StorePath, ".gws", "lock")
-		if stale, age, ok := staleLock(lockPath, now); ok && stale {
-			issues = append(issues, Issue{
-				Kind:    "stale_lock",
-				Path:    lockPath,
-				Message: fmt.Sprintf("stale repo lock (age %s)", age),
-			})
-		}
 		if ok, err := hasOriginRemote(entry.StorePath); err != nil {
 			repoWarnings = append(repoWarnings, fmt.Errorf("repo %s: %w", entry.RepoKey, err))
 		} else if !ok {
@@ -168,26 +143,8 @@ func Fix(ctx context.Context, rootDir string, now time.Time) (FixResult, error) 
 	}
 
 	var fixed []string
-	for _, issue := range result.Issues {
-		if issue.Kind != "stale_lock" {
-			continue
-		}
-		if err := os.Remove(issue.Path); err != nil && !os.IsNotExist(err) {
-			return FixResult{}, fmt.Errorf("remove lock %s: %w", issue.Path, err)
-		}
-		fixed = append(fixed, issue.Path)
-	}
 
 	return FixResult{Result: result, Fixed: fixed}, nil
-}
-
-func staleLock(path string, now time.Time) (bool, time.Duration, bool) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false, 0, false
-	}
-	age := now.Sub(info.ModTime())
-	return age > staleLockThreshold, age, true
 }
 
 func dirExists(path string) bool {

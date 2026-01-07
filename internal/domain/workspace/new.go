@@ -5,16 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/tasuku43/gws/internal/gitcmd"
-	"gopkg.in/yaml.v3"
-)
-
-const (
-	manifestDirName  = ".gws"
-	manifestFileName = "manifest.yaml"
-	defaultTTLDays   = 30
+	"github.com/tasuku43/gws/internal/core/gitcmd"
 )
 
 func New(ctx context.Context, rootDir string, workspaceID string) (string, error) {
@@ -32,30 +24,8 @@ func New(ctx context.Context, rootDir string, workspaceID string) (string, error
 		return "", fmt.Errorf("workspace already exists: %s", wsDir)
 	}
 
-	manifestDir := filepath.Join(wsDir, manifestDirName)
-	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+	if err := os.MkdirAll(wsDir, 0o755); err != nil {
 		return "", fmt.Errorf("create workspace dir: %w", err)
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-	manifest := Manifest{
-		SchemaVersion: 1,
-		WorkspaceID:   workspaceID,
-		CreatedAt:     now,
-		LastUsedAt:    now,
-		Policy: Policy{
-			Pinned:  false,
-			TTLDays: defaultTTLDays,
-		},
-	}
-
-	data, err := yaml.Marshal(manifest)
-	if err != nil {
-		return "", fmt.Errorf("marshal manifest: %w", err)
-	}
-	manifestPath := filepath.Join(manifestDir, manifestFileName)
-	if err := os.WriteFile(manifestPath, data, 0o644); err != nil {
-		return "", fmt.Errorf("write manifest: %w", err)
 	}
 
 	return wsDir, nil

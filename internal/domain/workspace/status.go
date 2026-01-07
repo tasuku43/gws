@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tasuku43/gws/internal/gitcmd"
+	"github.com/tasuku43/gws/internal/core/gitcmd"
 )
 
 type StatusResult struct {
 	WorkspaceID string
 	Repos       []RepoStatus
+	Warnings    []error
 }
 
 type RepoStatus struct {
@@ -47,16 +48,16 @@ func Status(ctx context.Context, rootDir, workspaceID string) (StatusResult, err
 		return StatusResult{}, fmt.Errorf("workspace does not exist: %s", wsDir)
 	}
 
-	manifestPath := filepath.Join(wsDir, manifestDirName, manifestFileName)
-	manifest, err := LoadManifest(manifestPath)
+	repos, warnings, err := ScanRepos(ctx, wsDir)
 	if err != nil {
 		return StatusResult{}, err
 	}
 
 	result := StatusResult{
 		WorkspaceID: workspaceID,
+		Warnings:    warnings,
 	}
-	for _, repo := range manifest.Repos {
+	for _, repo := range repos {
 		repoStatus := RepoStatus{
 			Alias:        repo.Alias,
 			Branch:       repo.Branch,

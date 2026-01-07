@@ -9,9 +9,6 @@ import (
 type Entry struct {
 	WorkspaceID   string
 	WorkspacePath string
-	ManifestPath  string
-	Manifest      *Manifest
-	Warning       error
 }
 
 func List(rootDir string) ([]Entry, []error, error) {
@@ -33,7 +30,6 @@ func List(rootDir string) ([]Entry, []error, error) {
 	}
 
 	var results []Entry
-	var warnings []error
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -41,24 +37,13 @@ func List(rootDir string) ([]Entry, []error, error) {
 		}
 		wsID := entry.Name()
 		wsPath := filepath.Join(wsRoot, wsID)
-		manifestPath := filepath.Join(wsPath, manifestDirName, manifestFileName)
 
 		result := Entry{
 			WorkspaceID:   wsID,
 			WorkspacePath: wsPath,
-			ManifestPath:  manifestPath,
 		}
-
-		manifest, err := LoadManifest(manifestPath)
-		if err != nil {
-			result.Warning = err
-			warnings = append(warnings, fmt.Errorf("workspace %s: %w", wsID, err))
-			results = append(results, result)
-			continue
-		}
-		result.Manifest = &manifest
 		results = append(results, result)
 	}
 
-	return results, warnings, nil
+	return results, nil, nil
 }

@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/tasuku43/gws/internal/gitcmd"
-	"github.com/tasuku43/gws/internal/repo"
-	"github.com/tasuku43/gws/internal/repospec"
+	"github.com/tasuku43/gws/internal/core/gitcmd"
+	"github.com/tasuku43/gws/internal/domain/repo"
+	"github.com/tasuku43/gws/internal/domain/repospec"
 )
 
 func Add(ctx context.Context, rootDir, workspaceID, repoSpec, alias string, fetch bool) (Repo, error) {
@@ -34,12 +33,6 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 		return Repo{}, fmt.Errorf("workspace does not exist: %s", wsDir)
 	}
 
-	manifestPath := filepath.Join(wsDir, manifestDirName, manifestFileName)
-	manifest, err := LoadManifest(manifestPath)
-	if err != nil {
-		return Repo{}, err
-	}
-
 	spec, err := repospec.Normalize(repoSpec)
 	if err != nil {
 		return Repo{}, err
@@ -50,8 +43,17 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 	if alias == "" {
 		return Repo{}, fmt.Errorf("alias is required")
 	}
-	if err := ensureRepoNotRegistered(manifest, alias, spec.RepoKey); err != nil {
+	repos, _, err := ScanRepos(ctx, wsDir)
+	if err != nil {
 		return Repo{}, err
+	}
+	for _, existing := range repos {
+		if existing.Alias == alias {
+			return Repo{}, fmt.Errorf("alias already exists: %s", alias)
+		}
+		if spec.RepoKey != "" && existing.RepoKey == spec.RepoKey {
+			return Repo{}, fmt.Errorf("repo already exists: %s", spec.RepoKey)
+		}
 	}
 
 	store, err := repo.Open(ctx, rootDir, repoSpec, fetch)
@@ -79,7 +81,6 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 		return Repo{}, err
 	}
 
-	var createdBranch bool
 	if branchExists {
 		gitcmd.Logf("git worktree add %s %s", worktreePath, branch)
 		if _, err := gitcmd.Run(ctx, []string{"worktree", "add", worktreePath, branch}, gitcmd.Options{Dir: store.StorePath, ShowOutput: true}); err != nil {
@@ -90,24 +91,15 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 		if _, err := gitcmd.Run(ctx, []string{"worktree", "add", "-b", branch, worktreePath, baseRef}, gitcmd.Options{Dir: store.StorePath, ShowOutput: true}); err != nil {
 			return Repo{}, err
 		}
-		createdBranch = true
 	}
 
 	repoEntry := Repo{
-		Alias:         alias,
-		RepoSpec:      repoSpec,
-		RepoKey:       spec.RepoKey,
-		StorePath:     store.StorePath,
-		WorktreePath:  worktreePath,
-		Branch:        branch,
-		BaseRef:       baseRef,
-		CreatedBranch: createdBranch,
-	}
-
-	AddRepo(&manifest, repoEntry)
-	TouchLastUsed(&manifest, time.Now())
-	if err := WriteManifest(manifestPath, manifest); err != nil {
-		return Repo{}, err
+		Alias:        alias,
+		RepoSpec:     repoSpec,
+		RepoKey:      spec.RepoKey,
+		StorePath:    store.StorePath,
+		WorktreePath: worktreePath,
+		Branch:       branch,
 	}
 
 	return repoEntry, nil
@@ -239,18 +231,6 @@ func validateBranchName(ctx context.Context, branch string) error {
 	_, err := gitcmd.Run(ctx, []string{"check-ref-format", "--branch", branch}, gitcmd.Options{})
 	if err != nil {
 		return fmt.Errorf("invalid branch name: %w", err)
-	}
-	return nil
-}
-
-func ensureRepoNotRegistered(manifest Manifest, alias, repoKey string) error {
-	for _, existing := range manifest.Repos {
-		if existing.Alias == alias {
-			return fmt.Errorf("alias already exists: %s", alias)
-		}
-		if repoKey != "" && existing.RepoKey == repoKey {
-			return fmt.Errorf("repo already registered: %s", repoKey)
-		}
 	}
 	return nil
 }

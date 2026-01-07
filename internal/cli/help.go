@@ -1,4 +1,4 @@
-package app
+package cli
 
 import (
 	"fmt"
@@ -27,7 +27,6 @@ func printGlobalHelp(w io.Writer) {
 	fmt.Fprintln(w, "  review <PR URL>                    create review workspace from PR")
 	fmt.Fprintln(w, "  repo <subcommand>                  repo commands (get/ls)")
 	fmt.Fprintln(w, "  template <subcommand>              template commands (ls)")
-	fmt.Fprintln(w, "  gc [--dry-run] [--older <duration>]")
 	fmt.Fprintln(w, "  doctor [--fix]                     check workspace/repo health")
 	fmt.Fprintln(w, "  init")
 	fmt.Fprintln(w, "  help [command]")
@@ -57,8 +56,6 @@ func printCommandHelp(cmd string, w io.Writer) bool {
 		printRepoHelp(w)
 	case "template":
 		printTemplateHelp(w)
-	case "gc":
-		printGCHelp(w)
 	case "doctor":
 		printDoctorHelp(w)
 	case "init":
@@ -119,12 +116,6 @@ func printTemplateHelp(w io.Writer) {
 
 func printTemplateLsHelp(w io.Writer) {
 	fmt.Fprintln(w, "Usage: gws template ls")
-}
-
-func printGCHelp(w io.Writer) {
-	fmt.Fprintln(w, "Usage: gws gc [--dry-run] [--older <duration>]")
-	fmt.Fprintln(w, "  --dry-run          list candidates only")
-	fmt.Fprintln(w, "  --older <duration> e.g. 30d, 720h")
 }
 
 func printDoctorHelp(w io.Writer) {
