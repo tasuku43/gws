@@ -22,8 +22,6 @@
 | MVP-033 | gws ws ls | Done |
 | MVP-034 | gws ws status | To Do |
 | MVP-035 | gws ws rm | To Do |
-| MVP-040 | gws gc --dry-run | To Do |
-| MVP-041 | gws gc (execute) | To Do |
 | MVP-042 | gws doctor | To Do |
 | MVP-050 | Unit tests for normalization & config | To Do |
 | MVP-051 | Integration tests for repo get + ws add/rm | To Do |
@@ -37,8 +35,6 @@
 | MVP-104 | UI: gws ls | Done |
 | MVP-105 | UI: gws status | Done |
 | MVP-106 | UI: gws rm | Done |
-| MVP-107 | UI: gws gc --dry-run | To Do |
-| MVP-108 | UI: gws gc (execute) | To Do |
 | MVP-109 | UI: gws doctor | To Do |
 | MVP-110 | UI: gws template ls | To Do |
 | MVP-111 | UI: gws init | To Do |
@@ -49,7 +45,6 @@
 - コマンド:
     - `gws repo get|ls`
     - `gws ws new|add|ls|status|rm`
-    - `gws gc --dry-run` と実行
     - `gws doctor`（最低限）
 - ルート解決: `--root` > `GWS_ROOT` > config > default(~/gws)
 - ディレクトリ構造: `<root>/repos`, `<root>/ws`
@@ -196,23 +191,7 @@ Acceptance:
 
 ---
 
-## EP4: GC & Doctor
-
-### MVP-040: gws gc --dry-run
-Goal:
-- stale workspace の候補を列挙
-
-Acceptance:
-- `--older 30d` などで候補が出る
-- pinned は除外
-
-### MVP-041: gws gc (execute)
-Goal:
-- 候補 workspace を安全に回収
-
-Acceptance:
-- dirty は拒否
-- ws rm 相当の削除を行う
+## EP4: Doctor
 
 ### MVP-042: gws doctor
 Goal:
