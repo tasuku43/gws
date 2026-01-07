@@ -20,12 +20,12 @@
 | MVP-031 | manifest read/write library | Done |
 | MVP-032 | gws ws add (worktree add) | Done |
 | MVP-033 | gws ws ls | Done |
-| MVP-034 | gws ws status | To Do |
-| MVP-035 | gws ws rm | To Do |
-| MVP-042 | gws doctor | To Do |
-| MVP-050 | Unit tests for normalization & config | To Do |
-| MVP-051 | Integration tests for repo get + ws add/rm | To Do |
-| MVP-060 | Basic Makefile or justfile | To Do |
+| MVP-034 | gws ws status | Done |
+| MVP-035 | gws ws rm | Done |
+| MVP-042 | gws doctor | Done |
+| MVP-050 | Unit tests for normalization & config | Done |
+| MVP-051 | Integration tests for repo get + ws add/rm | Done |
+| MVP-060 | Basic Makefile or justfile | Done |
 | MVP-080 | template (workspace templates) | To Do |
 | MVP-090 | init (bootstrap) | To Do |
 | MVP-100 | UI: gws new (Bubble Tea inputs + sectioned output) | Done |
