@@ -1172,7 +1172,7 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 			renderer := ui.NewRenderer(os.Stdout, theme, useColor)
 			renderer.Header("gws rm")
 			renderer.Blank()
-			renderer.Section("Inputs")
+			renderer.Section("Info")
 			renderer.Bullet("no removable workspaces")
 			if len(blocked) > 0 {
 				renderer.Bullet("blocked workspaces")

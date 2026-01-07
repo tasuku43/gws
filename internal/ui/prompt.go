@@ -526,8 +526,17 @@ func (m workspaceSelectModel) View() string {
 	renderWorkspaceChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
 	if len(m.blocked) > 0 {
 		b.WriteString("\n")
-		blockedLabel := promptLabel(m.theme, m.useColor, "blocked workspaces")
-		b.WriteString(fmt.Sprintf("%s%s %s:\n", output.Indent, prefix, blockedLabel))
+		infoTitle := "Info"
+		if m.useColor {
+			infoTitle = m.theme.SectionTitle.Render(infoTitle)
+		}
+		b.WriteString(infoTitle)
+		b.WriteString("\n")
+		infoPrefix := output.StepPrefix
+		if m.useColor {
+			infoPrefix = m.theme.Muted.Render(infoPrefix)
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, infoPrefix, "blocked workspaces"))
 		renderBlockedChoiceList(&b, m.blocked, m.useColor, m.theme)
 	}
 	return b.String()
