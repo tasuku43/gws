@@ -15,7 +15,7 @@ type Entry struct {
 }
 
 func List(rootDir string) ([]Entry, []error, error) {
-	wsRoot := filepath.Join(rootDir, "ws")
+	wsRoot := filepath.Join(rootDir, "workspaces")
 	info, err := os.Stat(wsRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -24,7 +24,7 @@ func List(rootDir string) ([]Entry, []error, error) {
 		return nil, nil, err
 	}
 	if !info.IsDir() {
-		return nil, nil, fmt.Errorf("ws path is not a directory: %s", wsRoot)
+		return nil, nil, fmt.Errorf("workspaces path is not a directory: %s", wsRoot)
 	}
 
 	entries, err := os.ReadDir(wsRoot)

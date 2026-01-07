@@ -122,5 +122,5 @@ func parseRFC3339(value string) (time.Time, bool) {
 }
 
 func WorkspaceRoot(rootDir string) string {
-	return filepath.Join(rootDir, "ws")
+	return filepath.Join(rootDir, "workspaces")
 }

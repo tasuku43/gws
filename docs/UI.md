@@ -56,7 +56,7 @@ Example:
 ```
 Steps
   • repo get git@github.com:org/repo.git -> bare/github.com/org/repo.git, src/github.com/org/repo
-  • worktree add repo -> ws/PROJ-123/repo
+  • worktree add repo -> workspaces/PROJ-123/repo
 ```
 
 ## Command execution logs
@@ -100,7 +100,7 @@ Steps
   • worktree add helmfiles
 
 Result
-  /Users/me/gws/ws/SREP-123
+  /Users/me/gws/workspaces/SREP-123
     └─ helmfiles (branch: SREP-123)
 ```
 
@@ -113,7 +113,7 @@ Steps
   › worktree add repo
 
 Result
-  /Users/me/gws/ws/REVIEW-PR-123
+  /Users/me/gws/workspaces/REVIEW-PR-123
     ├─ repo
     └─ api
 ```

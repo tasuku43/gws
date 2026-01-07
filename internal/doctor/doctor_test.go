@@ -14,7 +14,7 @@ func TestCheckFindsIssues(t *testing.T) {
 	rootDir := t.TempDir()
 	now := time.Now().UTC()
 
-	wsDir := filepath.Join(rootDir, "ws", "WS1")
+	wsDir := filepath.Join(rootDir, "workspaces", "WS1")
 	manifestDir := filepath.Join(wsDir, ".gws")
 	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
 		t.Fatalf("mkdir ws: %v", err)

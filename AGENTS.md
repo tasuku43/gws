@@ -26,24 +26,21 @@
 - Root resolution precedence:
     1) CLI flag `--root`
     2) env `GWS_ROOT`
-    3) `~/.config/gws/config.yaml`
-    4) default `~/gws`
+    3) default `~/gws`
 - Directory layout under root:
-    - `<root>/repos` (bare repo store)
-    - `<root>/ws` (workspaces)
+    - `<root>/bare` (bare repo store)
+    - `<root>/src` (human working tree)
+    - `<root>/workspaces` (workspaces)
 - Workspace ID must be a valid Git branch name and equals branch name for worktrees.
 
 ## MVP scope
 Only implement:
 - repo: get / ls
-- ws: new / add / ls / status / rm
+- workspace: new / add / ls / status / rm
 - gc: dry-run + run (safe guard)
 - doctor: minimal checks (stale locks, missing worktrees, inconsistency hints)
 
-If something is outside MVP, stop and document it in `tasks/BACKLOG.md` instead of implementing.
-
 ## How to proceed on a task
-- Pick one task ID from `tasks/MVP.md`.
 - Implement the smallest correct change to satisfy acceptance criteria.
 - Add/adjust tests as required.
 - Ensure docs remain consistent.

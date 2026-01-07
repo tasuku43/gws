@@ -101,7 +101,7 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 
 func checkRootLayout(rootDir string) []Issue {
 	var issues []Issue
-	dirs := []string{"bare", "src", "ws"}
+	dirs := []string{"bare", "src", "workspaces"}
 	for _, name := range dirs {
 		path := filepath.Join(rootDir, name)
 		info, err := os.Stat(path)

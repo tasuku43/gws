@@ -61,7 +61,7 @@ func TestRepoGetWorkspaceAddRemove(t *testing.T) {
 		t.Fatalf("workspace.Add error: %v", err)
 	}
 
-	worktreePath := filepath.Join(rootDir, "ws", "TEST-1", "repo")
+	worktreePath := filepath.Join(rootDir, "workspaces", "TEST-1", "repo")
 	if _, err := os.Stat(worktreePath); err != nil {
 		t.Fatalf("worktree missing: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestRepoGetWorkspaceAddRemove(t *testing.T) {
 	if err := workspace.Remove(ctx, rootDir, "TEST-1"); err != nil {
 		t.Fatalf("workspace.Remove error: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(rootDir, "ws", "TEST-1")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(rootDir, "workspaces", "TEST-1")); !os.IsNotExist(err) {
 		t.Fatalf("workspace dir still exists")
 	}
 }

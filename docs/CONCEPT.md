@@ -43,7 +43,7 @@ gws は、作業場を workspace（タスク単位ディレクトリ）へ昇格
 `$GWS_ROOT` 配下の固定構造（v0.1）:
 - `$GWS_ROOT/bare/` : repo store（bare repo）
 - `$GWS_ROOT/src/`  : human working tree
-- `$GWS_ROOT/ws/`    : workspace 群（タスク単位）
+- `$GWS_ROOT/workspaces/`    : workspace 群（タスク単位）
 - `$GWS_ROOT/templates.yaml` : workspace templates
 
 ## 4. 設定
@@ -52,7 +52,7 @@ gws は、作業場を workspace（タスク単位ディレクトリ）へ昇格
 MVP ではユーザー設定ファイルは持たない（デフォルトはハードコード）。
 
 workspace ローカル:
-- `$GWS_ROOT/ws/<WORKSPACE_ID>/.gws/manifest.yaml`
+- `$GWS_ROOT/workspaces/<WORKSPACE_ID>/.gws/manifest.yaml`
 
 ### 4.2 ルート解決の優先順位
 1. CLI フラグ（例: `--root`）
@@ -116,7 +116,7 @@ repo store の物理パスは下記を基本とする（正規化後）:
 
 最低限、以下の排他を行う:
 - repo 単位ロック: clone/fetch/worktree add/remove の競合回避
-- workspace 単位ロック: ws add/rm/gc の競合回避
+- workspace 単位ロック: workspace add/rm/gc の競合回避
 
 ロックには owner 情報（pid/host）とタイムアウトを持たせ、doctor で回収できる。
 
@@ -134,6 +134,6 @@ repo store の物理パスは下記を基本とする（正規化後）:
 
 ## 12. 将来拡張（バックログ）
 - manifest 編集駆動（apply）
-- テンプレート（複数 repo を一発で ws new）
+- テンプレート（複数 repo を一発で workspace new）
 - JSON 出力と安定スキーマ（agent 統合を強化）
 - GitHub 連携（PR/Issue ステータスで gc 候補精度を上げる）

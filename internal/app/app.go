@@ -433,7 +433,7 @@ func runWorkspaceNew(ctx context.Context, rootDir string, args []string, noPromp
 		}
 	}
 
-	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "ws", workspaceID))))
+	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "workspaces", workspaceID))))
 	wsDir, err := workspace.New(ctx, rootDir, workspaceID)
 	if err != nil {
 		return err
@@ -536,12 +536,12 @@ func runWorkspaceAdd(ctx context.Context, rootDir string, args []string) error {
 	if _, err := workspace.Add(ctx, rootDir, workspaceID, repoSpec, "", false); err != nil {
 		return err
 	}
-	wsDir := filepath.Join(rootDir, "ws", workspaceID)
+	wsDir := filepath.Join(rootDir, "workspaces", workspaceID)
 	repos, _ := loadWorkspaceRepos(wsDir)
 	renderer.Blank()
 	renderer.Section("Result")
 	renderWorkspaceBlock(renderer, workspaceID, repos)
-	renderSuggestion(renderer, useColor, filepath.Join(rootDir, "ws", workspaceID))
+	renderSuggestion(renderer, useColor, filepath.Join(rootDir, "workspaces", workspaceID))
 	return nil
 }
 
@@ -618,7 +618,7 @@ func runReview(ctx context.Context, rootDir string, args []string, noPrompt bool
 		}
 	}
 
-	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "ws", workspaceID))))
+	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "workspaces", workspaceID))))
 	wsDir, err := workspace.New(ctx, rootDir, workspaceID)
 	if err != nil {
 		return err
@@ -945,7 +945,7 @@ func worktreeDest(rootDir, workspaceID, repoSpec string) string {
 	if err != nil || spec.Repo == "" {
 		return ""
 	}
-	wsPath := filepath.Join(rootDir, "ws", workspaceID, spec.Repo)
+	wsPath := filepath.Join(rootDir, "workspaces", workspaceID, spec.Repo)
 	return relPath(rootDir, wsPath)
 }
 
@@ -1398,7 +1398,7 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		renderer.Blank()
 	}
 	renderer.Section("Steps")
-	output.Step(formatStep("remove workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "ws", workspaceID))))
+	output.Step(formatStep("remove workspace", workspaceID, relPath(rootDir, filepath.Join(rootDir, "workspaces", workspaceID))))
 
 	if err := workspace.Remove(ctx, rootDir, workspaceID); err != nil {
 		return err

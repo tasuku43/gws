@@ -17,7 +17,7 @@ func Remove(ctx context.Context, rootDir, workspaceID string) error {
 		return fmt.Errorf("root directory is required")
 	}
 
-	wsDir := filepath.Join(rootDir, "ws", workspaceID)
+	wsDir := filepath.Join(rootDir, "workspaces", workspaceID)
 	if exists, err := pathExists(wsDir); err != nil {
 		return err
 	} else if !exists {

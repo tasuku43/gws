@@ -73,7 +73,7 @@ MVP出力:
 - `$GWS_ROOT` 配下に必要なディレクトリ/設定ファイルを作成する
 
 挙動:
-- `bare/`, `src/`, `ws/` を作成（既存ならスキップ）
+- `bare/`, `src/`, `workspaces/` を作成（既存ならスキップ）
 - `templates.yaml` を作成（既存ならスキップ）
   - `example` テンプレート（複数 repo）を同梱
 
@@ -81,7 +81,7 @@ MVP出力:
 
 ### gws new [--template <name>] [<WORKSPACE_ID>]
 目的:
-- `$GWS_ROOT/ws/<id>/` と `.gws/manifest.yaml` を作成
+  - `$GWS_ROOT/workspaces/<id>/` と `.gws/manifest.yaml` を作成
 
 制約:
 - WORKSPACE_ID は Git ブランチ名として妥当な文字列であること（refname check）
@@ -97,7 +97,7 @@ MVP出力:
 
 挙動:
 1. repo get 済みであることを前提に store を最新化（未取得ならエラー）
-2. `<ws>/<id>/<repo_name>` を作業ディレクトリとして決定
+2. `<workspaces>/<id>/<repo_name>` を作業ディレクトリとして決定
 3. ブランチが存在しない場合は base_ref から作成して worktree add
 4. manifest に追記
 5. last_used_at を更新

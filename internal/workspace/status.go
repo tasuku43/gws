@@ -40,7 +40,7 @@ func Status(ctx context.Context, rootDir, workspaceID string) (StatusResult, err
 		return StatusResult{}, fmt.Errorf("root directory is required")
 	}
 
-	wsDir := filepath.Join(rootDir, "ws", workspaceID)
+	wsDir := filepath.Join(rootDir, "workspaces", workspaceID)
 	if exists, err := pathExists(wsDir); err != nil {
 		return StatusResult{}, err
 	} else if !exists {

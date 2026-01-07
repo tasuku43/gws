@@ -27,7 +27,7 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 		return Repo{}, fmt.Errorf("root directory is required")
 	}
 
-	wsDir := filepath.Join(rootDir, "ws", workspaceID)
+	wsDir := filepath.Join(rootDir, "workspaces", workspaceID)
 	if exists, err := pathExists(wsDir); err != nil {
 		return Repo{}, err
 	} else if !exists {

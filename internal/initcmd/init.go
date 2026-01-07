@@ -26,7 +26,7 @@ func Run(rootDir string) (Result, error) {
 	dirs := []string{
 		filepath.Join(rootDir, "bare"),
 		filepath.Join(rootDir, "src"),
-		filepath.Join(rootDir, "ws"),
+		filepath.Join(rootDir, "workspaces"),
 	}
 	for _, dir := range dirs {
 		if exists, err := dirExists(dir); err != nil {

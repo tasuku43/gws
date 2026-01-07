@@ -10,11 +10,11 @@
 
 2) workspace ロック
 - 対象: workspace 単位
-- 目的: ws add/rm/gc の競合回避
+- 目的: workspace add/rm/gc の競合回避
 
 ## ロックファイル
 - repo: `$STORE/.gws/lock`
-- ws: `$WS/.gws/lock`
+- workspace: `$WORKSPACE/.gws/lock`
 
 ## ロック情報
 ロックファイルには以下を記録（テキストで十分）:
