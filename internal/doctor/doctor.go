@@ -37,6 +37,7 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 	_ = ctx
 
 	var issues []Issue
+	issues = append(issues, checkRootLayout(rootDir)...)
 
 	wsEntries, wsWarnings, err := workspace.List(rootDir)
 	if err != nil {
@@ -96,6 +97,68 @@ func Check(ctx context.Context, rootDir string, now time.Time) (Result, error) {
 
 	warnings := append(wsWarnings, repoWarnings...)
 	return Result{Issues: issues, Warnings: warnings}, nil
+}
+
+func checkRootLayout(rootDir string) []Issue {
+	var issues []Issue
+	dirs := []string{"bare", "src", "ws"}
+	for _, name := range dirs {
+		path := filepath.Join(rootDir, name)
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				issues = append(issues, Issue{
+					Kind:    "missing_root_dir",
+					Path:    path,
+					Message: fmt.Sprintf("%s directory not found", name),
+				})
+				continue
+			}
+			issues = append(issues, Issue{
+				Kind:    "invalid_root_dir",
+				Path:    path,
+				Message: fmt.Sprintf("cannot stat %s directory: %v", name, err),
+			})
+			continue
+		}
+		if !info.IsDir() {
+			issues = append(issues, Issue{
+				Kind:    "invalid_root_dir",
+				Path:    path,
+				Message: fmt.Sprintf("%s is not a directory", name),
+			})
+		}
+	}
+
+	files := []string{"settings.yaml", "templates.yaml"}
+	for _, name := range files {
+		path := filepath.Join(rootDir, name)
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				issues = append(issues, Issue{
+					Kind:    "missing_root_file",
+					Path:    path,
+					Message: fmt.Sprintf("%s not found", name),
+				})
+				continue
+			}
+			issues = append(issues, Issue{
+				Kind:    "invalid_root_file",
+				Path:    path,
+				Message: fmt.Sprintf("cannot stat %s: %v", name, err),
+			})
+			continue
+		}
+		if info.IsDir() {
+			issues = append(issues, Issue{
+				Kind:    "invalid_root_file",
+				Path:    path,
+				Message: fmt.Sprintf("%s is a directory", name),
+			})
+		}
+	}
+	return issues
 }
 
 func Fix(ctx context.Context, rootDir string, now time.Time) (FixResult, error) {

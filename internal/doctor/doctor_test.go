@@ -86,3 +86,23 @@ func TestCheckFindsIssues(t *testing.T) {
 		t.Fatalf("expected missing_remote issue")
 	}
 }
+
+func TestCheckRootLayout(t *testing.T) {
+	rootDir := t.TempDir()
+	now := time.Now().UTC()
+
+	result, err := Check(context.Background(), rootDir, now)
+	if err != nil {
+		t.Fatalf("doctor check: %v", err)
+	}
+	kinds := map[string]int{}
+	for _, issue := range result.Issues {
+		kinds[issue.Kind]++
+	}
+	if kinds["missing_root_dir"] == 0 {
+		t.Fatalf("expected missing_root_dir issues")
+	}
+	if kinds["missing_root_file"] == 0 {
+		t.Fatalf("expected missing_root_file issues")
+	}
+}
