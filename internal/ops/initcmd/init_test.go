@@ -38,11 +38,11 @@ func TestRunCreatesAndSkips(t *testing.T) {
 	if !strings.Contains(content, "example:") {
 		t.Fatalf("expected example template in templates.yaml")
 	}
-	if !strings.Contains(content, "git@github.com:github/docs.git") {
-		t.Fatalf("expected github/docs repo in templates.yaml")
+	if !strings.Contains(content, "git@github.com:octocat/Hello-World.git") {
+		t.Fatalf("expected octocat/Hello-World repo in templates.yaml")
 	}
-	if !strings.Contains(content, "git@github.com:github/opensource.guide.git") {
-		t.Fatalf("expected github/opensource.guide repo in templates.yaml")
+	if !strings.Contains(content, "git@github.com:octocat/Spoon-Knife.git") {
+		t.Fatalf("expected octocat/Spoon-Knife repo in templates.yaml")
 	}
 
 	second, err := Run(rootDir)
