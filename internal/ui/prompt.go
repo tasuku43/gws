@@ -395,7 +395,7 @@ func (m confirmInlineModel) View() string {
 // PromptTemplateRepos lets users pick one or more repos from a list with filtering.
 func PromptTemplateRepos(title string, choices []PromptChoice, theme Theme, useColor bool) ([]string, error) {
 	model := newTemplateRepoSelectModel(title, choices, theme, useColor)
-	prog := tea.NewProgram(model)
+	prog := tea.NewProgram(model, tea.WithAltScreen())
 	out, err := prog.Run()
 	if err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func PromptTemplateRepos(title string, choices []PromptChoice, theme Theme, useC
 // PromptTemplateName asks for a template name via text input.
 func PromptTemplateName(title string, defaultValue string, theme Theme, useColor bool) (string, error) {
 	model := newTemplateNameModel(title, defaultValue, theme, useColor)
-	prog := tea.NewProgram(model)
+	prog := tea.NewProgram(model, tea.WithAltScreen())
 	out, err := prog.Run()
 	if err != nil {
 		return "", err
