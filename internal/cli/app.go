@@ -2801,64 +2801,6 @@ func buildStatusDetails(repo workspace.RepoStatus) []statusDetail {
 	return details
 }
 
-func collectRemoveWarnings(ctx context.Context, rootDir, workspaceID string) []string {
-	state, err := workspace.State(ctx, rootDir, workspaceID)
-	if err != nil {
-		return []string{fmt.Sprintf("status check failed: %s", compactError(err))}
-	}
-	return buildRemoveWarnings(state)
-}
-
-func buildRemoveWarnings(state workspace.WorkspaceState) []string {
-	var warnings []string
-	for _, warning := range state.Warnings {
-		warnings = append(warnings, compactError(warning))
-	}
-	for _, repo := range state.Repos {
-		name := strings.TrimSpace(repo.Alias)
-		if name == "" && strings.TrimSpace(repo.WorktreePath) != "" {
-			name = filepath.Base(repo.WorktreePath)
-		}
-		if name == "" {
-			name = "repo"
-		}
-		if repo.Error != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: status error (%s)", name, compactError(repo.Error)))
-			continue
-		}
-		switch repo.Kind {
-		case workspace.RepoStateDirty:
-			detail := formatDirtySummaryCounts(repo.StagedCount, repo.UnstagedCount, repo.UntrackedCount, repo.UnmergedCount)
-			if detail == "" {
-				detail = "dirty"
-			}
-			warnings = append(warnings, fmt.Sprintf("%s: dirty changes (%s)", name, detail))
-		case workspace.RepoStateUnpushed:
-			upstream := repo.Upstream
-			if strings.TrimSpace(upstream) == "" {
-				upstream = "upstream"
-			}
-			warnings = append(warnings, fmt.Sprintf("%s: ahead of %s by %d", name, upstream, repo.AheadCount))
-		case workspace.RepoStateDiverged:
-			upstream := strings.TrimSpace(repo.Upstream)
-			if upstream == "" {
-				warnings = append(warnings, fmt.Sprintf("%s: upstream not set", name))
-				continue
-			}
-			if repo.AheadCount > 0 && repo.BehindCount > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: diverged from %s (ahead %d, behind %d)", name, upstream, repo.AheadCount, repo.BehindCount))
-				continue
-			}
-			if repo.BehindCount > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: behind %s by %d", name, upstream, repo.BehindCount))
-			}
-		case workspace.RepoStateUnknown:
-			warnings = append(warnings, fmt.Sprintf("%s: status unknown", name))
-		}
-	}
-	return warnings
-}
-
 func issueDetails(issue doctor.Issue) []string {
 	var details []string
 	if strings.TrimSpace(issue.Path) != "" {
@@ -3182,11 +3124,6 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 
 	if len(selected) == 1 {
 		state := loadWorkspaceStateForRemoval(ctx, rootDir, workspaceID)
-		removeWarnings := buildRemoveWarnings(state)
-		if len(removeWarnings) > 0 {
-			renderWarningsSection(renderer, "removal warnings", removeWarnings, false)
-			renderer.Blank()
-		}
 		if state.Kind != workspace.WorkspaceStateClean {
 			label := removeConfirmLabel(state)
 			confirm, err := ui.PromptConfirmInline(label, theme, useColor)
@@ -3213,7 +3150,6 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		return nil
 	}
 
-	var removeWarnings []string
 	requiresConfirm := false
 	requiresStrongConfirm := false
 	states := make(map[string]workspace.WorkspaceState, len(selected))
@@ -3226,14 +3162,6 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		if state.Kind == workspace.WorkspaceStateDirty || state.Kind == workspace.WorkspaceStateUnknown {
 			requiresStrongConfirm = true
 		}
-		warnings := buildRemoveWarnings(state)
-		for _, warning := range warnings {
-			removeWarnings = append(removeWarnings, fmt.Sprintf("%s: %s", selectedID, warning))
-		}
-	}
-	if len(removeWarnings) > 0 {
-		renderWarningsSection(renderer, "removal warnings", removeWarnings, false)
-		renderer.Blank()
 	}
 	confirmLabel := fmt.Sprintf("Remove %d workspaces?", len(selected))
 	if requiresStrongConfirm {
