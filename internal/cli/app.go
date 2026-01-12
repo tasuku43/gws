@@ -2904,45 +2904,6 @@ func buildStatusDetails(repo workspace.RepoStatus) []statusDetail {
 	return details
 }
 
-func collectRemoveWarnings(ctx context.Context, rootDir, workspaceID string) []string {
-	status, err := workspace.Status(ctx, rootDir, workspaceID)
-	if err != nil {
-		return []string{fmt.Sprintf("status check failed: %s", compactError(err))}
-	}
-	return buildRemoveWarnings(status)
-}
-
-func buildRemoveWarnings(status workspace.StatusResult) []string {
-	var warnings []string
-	for _, warning := range status.Warnings {
-		warnings = append(warnings, compactError(warning))
-	}
-	for _, repo := range status.Repos {
-		name := strings.TrimSpace(repo.Alias)
-		if name == "" && strings.TrimSpace(repo.WorktreePath) != "" {
-			name = filepath.Base(repo.WorktreePath)
-		}
-		if name == "" {
-			name = "repo"
-		}
-		if repo.Error != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: status error (%s)", name, compactError(repo.Error)))
-			continue
-		}
-		if repo.AheadCount > 0 {
-			upstream := repo.Upstream
-			if strings.TrimSpace(upstream) == "" {
-				upstream = "upstream"
-			}
-			warnings = append(warnings, fmt.Sprintf("%s: ahead of %s by %d", name, upstream, repo.AheadCount))
-		}
-		if strings.TrimSpace(repo.Upstream) == "" {
-			warnings = append(warnings, fmt.Sprintf("%s: upstream not set", name))
-		}
-	}
-	return warnings
-}
-
 func issueDetails(issue doctor.Issue) []string {
 	var details []string
 	if strings.TrimSpace(issue.Path) != "" {
@@ -2991,6 +2952,36 @@ func renderWarningsSection(r *ui.Renderer, title string, warnings []string, lead
 	renderTreeLines(r, warnings, treeLineWarn)
 }
 
+func removeConfirmLabel(state workspace.WorkspaceState) string {
+	switch state.Kind {
+	case workspace.WorkspaceStateDirty:
+		return "This workspace has uncommitted changes. Remove anyway?"
+	case workspace.WorkspaceStateUnpushed:
+		return "This workspace has unpushed commits. Remove anyway?"
+	case workspace.WorkspaceStateDiverged:
+		return "This workspace has diverged from upstream. Remove anyway?"
+	case workspace.WorkspaceStateUnknown:
+		return "Workspace status could not be read. Remove anyway?"
+	default:
+		return "Remove workspace?"
+	}
+}
+
+func workspaceRemoveWarningLabel(state workspace.WorkspaceState) (string, bool) {
+	switch state.Kind {
+	case workspace.WorkspaceStateUnpushed:
+		return "unpushed commits", false
+	case workspace.WorkspaceStateDiverged:
+		return "diverged or upstream missing", false
+	case workspace.WorkspaceStateUnknown:
+		return "status unknown", true
+	case workspace.WorkspaceStateDirty:
+		return "dirty changes", true
+	default:
+		return "", false
+	}
+}
+
 func formatRepoName(alias, repoKey string) string {
 	name := strings.TrimSpace(alias)
 	if name != "" {
@@ -3017,53 +3008,45 @@ func appendWarningLines(lines []string, prefix string, warnings []error) []strin
 	return lines
 }
 
+func loadWorkspaceStateForRemoval(ctx context.Context, rootDir, workspaceID string) workspace.WorkspaceState {
+	state, err := workspace.State(ctx, rootDir, workspaceID)
+	if err == nil {
+		return state
+	}
+	return workspace.WorkspaceState{
+		WorkspaceID: workspaceID,
+		Kind:        workspace.WorkspaceStateUnknown,
+		Warnings:    []error{err},
+	}
+}
+
 func classifyWorkspaceRemoval(ctx context.Context, rootDir string, entries []workspace.Entry) ([]ui.WorkspaceChoice, []ui.BlockedChoice) {
 	var removable []ui.WorkspaceChoice
-	var blocked []ui.BlockedChoice
 	for _, entry := range entries {
-		reason := workspaceRemoveReason(ctx, rootDir, entry)
-		if strings.TrimSpace(reason) == "" {
-			removable = append(removable, buildWorkspaceChoice(ctx, entry))
-			continue
-		}
-		blocked = append(blocked, ui.BlockedChoice{
-			Label: fmt.Sprintf("%s (%s)", entry.WorkspaceID, reason),
-		})
+		state := loadWorkspaceStateForRemoval(ctx, rootDir, entry.WorkspaceID)
+		choice := buildWorkspaceChoice(ctx, entry)
+		choice.Warning, choice.WarningStrong = workspaceRemoveWarningLabel(state)
+		removable = append(removable, choice)
 	}
-	return removable, blocked
+	return removable, nil
 }
 
-func workspaceRemoveReason(ctx context.Context, rootDir string, entry workspace.Entry) string {
-	status, err := workspace.Status(ctx, rootDir, entry.WorkspaceID)
-	if err != nil {
-		return fmt.Sprintf("status: %s", compactError(err))
-	}
-	return buildWorkspaceRemoveReason(status)
-}
-
-func buildWorkspaceRemoveReason(status workspace.StatusResult) string {
+func buildWorkspaceRemoveReason(state workspace.WorkspaceState) string {
 	var dirtyRepos []string
-	var errorRepos []string
-	for _, repo := range status.Repos {
+	var reasons []string
+	for _, repo := range state.Repos {
 		name := strings.TrimSpace(repo.Alias)
 		if name == "" {
 			name = "unknown"
 		}
-		if repo.Error != nil {
-			errorRepos = append(errorRepos, fmt.Sprintf("%s (%s)", name, compactError(repo.Error)))
+		if repo.Kind != workspace.RepoStateDirty {
 			continue
 		}
-		if repo.Dirty {
-			detail := formatDirtySummary(repo)
-			if detail == "" {
-				detail = "dirty"
-			}
-			dirtyRepos = append(dirtyRepos, fmt.Sprintf("%s (%s)", name, detail))
+		detail := formatDirtySummaryCounts(repo.StagedCount, repo.UnstagedCount, repo.UntrackedCount, repo.UnmergedCount)
+		if detail == "" {
+			detail = "dirty"
 		}
-	}
-	var reasons []string
-	if len(errorRepos) > 0 {
-		reasons = append(reasons, fmt.Sprintf("status error: %s", strings.Join(errorRepos, ", ")))
+		dirtyRepos = append(dirtyRepos, fmt.Sprintf("%s (%s)", name, detail))
 	}
 	if len(dirtyRepos) > 0 {
 		reasons = append(reasons, fmt.Sprintf("dirty: %s", strings.Join(dirtyRepos, ", ")))
@@ -3072,18 +3055,22 @@ func buildWorkspaceRemoveReason(status workspace.StatusResult) string {
 }
 
 func formatDirtySummary(repo workspace.RepoStatus) string {
+	return formatDirtySummaryCounts(repo.StagedCount, repo.UnstagedCount, repo.UntrackedCount, repo.UnmergedCount)
+}
+
+func formatDirtySummaryCounts(staged, unstaged, untracked, unmerged int) string {
 	var parts []string
-	if repo.StagedCount > 0 {
-		parts = append(parts, fmt.Sprintf("staged=%d", repo.StagedCount))
+	if staged > 0 {
+		parts = append(parts, fmt.Sprintf("staged=%d", staged))
 	}
-	if repo.UnstagedCount > 0 {
-		parts = append(parts, fmt.Sprintf("unstaged=%d", repo.UnstagedCount))
+	if unstaged > 0 {
+		parts = append(parts, fmt.Sprintf("unstaged=%d", unstaged))
 	}
-	if repo.UntrackedCount > 0 {
-		parts = append(parts, fmt.Sprintf("untracked=%d", repo.UntrackedCount))
+	if untracked > 0 {
+		parts = append(parts, fmt.Sprintf("untracked=%d", untracked))
 	}
-	if repo.UnmergedCount > 0 {
-		parts = append(parts, fmt.Sprintf("unmerged=%d", repo.UnmergedCount))
+	if unmerged > 0 {
+		parts = append(parts, fmt.Sprintf("unmerged=%d", unmerged))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -3212,24 +3199,21 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		if len(workspaces) == 0 {
 			return fmt.Errorf("no workspaces found")
 		}
-		removable, blocked := classifyWorkspaceRemoval(ctx, rootDir, workspaces)
+		removable, _ := classifyWorkspaceRemoval(ctx, rootDir, workspaces)
 		theme := ui.DefaultTheme()
 		useColor := isatty.IsTerminal(os.Stdout.Fd())
 		if len(removable) == 0 {
 			renderer := ui.NewRenderer(os.Stdout, theme, useColor)
 			renderer.Section("Info")
 			renderer.Bullet("no removable workspaces")
-			if len(blocked) > 0 {
-				renderer.Bullet("blocked workspaces")
-				for _, item := range blocked {
-					renderer.TreeLineWarn(output.LogConnector+" ", item.Label)
-				}
-			}
 			return fmt.Errorf("no removable workspaces")
 		}
-		selected, err = ui.PromptWorkspaceMultiSelectWithBlocked("gws rm", removable, blocked, theme, useColor)
+		selected, err = ui.PromptWorkspaceMultiSelectWithBlocked("gws rm", removable, nil, theme, useColor)
 		if err != nil {
 			return err
+		}
+		if len(selected) == 0 {
+			return nil
 		}
 		if len(selected) == 1 {
 			workspaceID = selected[0]
@@ -3245,15 +3229,24 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 	defer output.SetStepLogger(nil)
 
 	if len(selected) == 1 {
-		removeWarnings := collectRemoveWarnings(ctx, rootDir, workspaceID)
-		if len(removeWarnings) > 0 {
-			renderWarningsSection(renderer, "possible unpushed commits", removeWarnings, false)
-			renderer.Blank()
+		state := loadWorkspaceStateForRemoval(ctx, rootDir, workspaceID)
+		if state.Kind != workspace.WorkspaceStateClean {
+			label := removeConfirmLabel(state)
+			confirm, err := ui.PromptConfirmInline(label, theme, useColor)
+			if err != nil {
+				return err
+			}
+			if !confirm {
+				return nil
+			}
 		}
 		renderer.Section("Steps")
 		output.Step(formatStep("remove workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 
-		if err := workspace.Remove(ctx, rootDir, workspaceID); err != nil {
+		if err := workspace.RemoveWithOptions(ctx, rootDir, workspaceID, workspace.RemoveOptions{
+			AllowStatusError: true,
+			AllowDirty:       state.Kind == workspace.WorkspaceStateDirty,
+		}); err != nil {
 			return err
 		}
 
@@ -3263,18 +3256,26 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		return nil
 	}
 
-	var removeWarnings []string
+	requiresConfirm := false
+	requiresStrongConfirm := false
+	states := make(map[string]workspace.WorkspaceState, len(selected))
 	for _, selectedID := range selected {
-		warnings := collectRemoveWarnings(ctx, rootDir, selectedID)
-		for _, warning := range warnings {
-			removeWarnings = append(removeWarnings, fmt.Sprintf("%s: %s", selectedID, warning))
+		state := loadWorkspaceStateForRemoval(ctx, rootDir, selectedID)
+		states[selectedID] = state
+		if state.Kind != workspace.WorkspaceStateClean {
+			requiresConfirm = true
+		}
+		if state.Kind == workspace.WorkspaceStateDirty || state.Kind == workspace.WorkspaceStateUnknown {
+			requiresStrongConfirm = true
 		}
 	}
-	if len(removeWarnings) > 0 {
-		renderWarningsSection(renderer, "possible unpushed commits", removeWarnings, false)
-		renderer.Blank()
+	confirmLabel := fmt.Sprintf("Remove %d workspaces?", len(selected))
+	if requiresStrongConfirm {
+		confirmLabel = fmt.Sprintf("Selected workspaces include uncommitted changes or status errors. Remove %d workspaces anyway?", len(selected))
+	} else if requiresConfirm {
+		confirmLabel = fmt.Sprintf("Selected workspaces have warnings. Remove %d workspaces anyway?", len(selected))
 	}
-	confirm, err := ui.PromptConfirmInline(fmt.Sprintf("Remove %d workspaces?", len(selected)), theme, useColor)
+	confirm, err := ui.PromptConfirmInline(confirmLabel, theme, useColor)
 	if err != nil {
 		return err
 	}
@@ -3285,7 +3286,11 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 	renderer.Section("Steps")
 	for i, selectedID := range selected {
 		output.Step(formatStepWithIndex("remove workspace", selectedID, relPath(rootDir, workspace.WorkspaceDir(rootDir, selectedID)), i+1, len(selected)))
-		if err := workspace.Remove(ctx, rootDir, selectedID); err != nil {
+		state := states[selectedID]
+		if err := workspace.RemoveWithOptions(ctx, rootDir, selectedID, workspace.RemoveOptions{
+			AllowStatusError: true,
+			AllowDirty:       state.Kind == workspace.WorkspaceStateDirty,
+		}); err != nil {
 			return err
 		}
 	}

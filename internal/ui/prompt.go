@@ -38,9 +38,11 @@ const (
 )
 
 type WorkspaceChoice struct {
-	ID          string
-	Description string
-	Repos       []PromptChoice
+	ID            string
+	Description   string
+	Repos         []PromptChoice
+	Warning       string
+	WarningStrong bool
 }
 
 type BlockedChoice struct {
@@ -109,11 +111,14 @@ func PromptWorkspaceMultiSelectWithBlocked(title string, workspaces []WorkspaceC
 	if final.err != nil {
 		return nil, final.err
 	}
+	if final.canceled {
+		return nil, nil
+	}
 	return append([]string(nil), final.selectedIDs...), nil
 }
 
 func PromptConfirmInline(label string, theme Theme, useColor bool) (bool, error) {
-	model := newConfirmInlineModel(label, theme, useColor)
+	model := newConfirmInlineModel(label, theme, useColor, false, nil, nil)
 	out, err := runProgram(model)
 	if err != nil {
 		return false, err
@@ -123,6 +128,23 @@ func PromptConfirmInline(label string, theme Theme, useColor bool) (bool, error)
 		return false, final.err
 	}
 	return final.value, nil
+}
+
+func PromptConfirmInlineInfo(label string, theme Theme, useColor bool) (bool, error) {
+	model := newConfirmInlineModel(label, theme, useColor, true, nil, nil)
+	out, err := runProgram(model)
+	if err != nil {
+		return false, err
+	}
+	final := out.(confirmInlineModel)
+	if final.err != nil {
+		return false, final.err
+	}
+	return final.value, nil
+}
+
+func PromptLabel(label string, theme Theme, useColor bool) string {
+	return promptLabel(theme, useColor, label)
 }
 
 type inputsStage int
@@ -353,7 +375,7 @@ func (m createFlowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if prevIndex, exists := m.usedBranches[value]; exists {
 					label := fmt.Sprintf("branch %q already used for repo #%d; use again?", value, prevIndex+1)
 					m.pendingBranch = value
-					m.confirmModel = newConfirmInlineModel(label, m.theme, m.useColor)
+					m.confirmModel = newConfirmInlineModel(label, m.theme, m.useColor, false, nil, nil)
 					m.stage = createStageTemplateBranchConfirm
 					return m, nil
 				}
@@ -757,16 +779,19 @@ func (m inputsModel) filterItems() []string {
 }
 
 type confirmInlineModel struct {
-	label    string
-	theme    Theme
-	useColor bool
-	input    textinput.Model
-	value    bool
-	err      error
-	done     bool
+	label        string
+	theme        Theme
+	useColor     bool
+	useInfo      bool
+	inputsPrompt []string
+	inputsRaw    []string
+	input        textinput.Model
+	value        bool
+	err          error
+	done         bool
 }
 
-func newConfirmInlineModel(label string, theme Theme, useColor bool) confirmInlineModel {
+func newConfirmInlineModel(label string, theme Theme, useColor bool, useInfo bool, inputsPrompt []string, inputsRaw []string) confirmInlineModel {
 	ti := textinput.New()
 	ti.Prompt = ""
 	ti.Placeholder = "y/n"
@@ -775,10 +800,13 @@ func newConfirmInlineModel(label string, theme Theme, useColor bool) confirmInli
 		ti.PlaceholderStyle = theme.Muted
 	}
 	return confirmInlineModel{
-		label:    label,
-		theme:    theme,
-		useColor: useColor,
-		input:    ti,
+		label:        label,
+		theme:        theme,
+		useColor:     useColor,
+		useInfo:      useInfo,
+		inputsPrompt: append([]string(nil), inputsPrompt...),
+		inputsRaw:    append([]string(nil), inputsRaw...),
+		input:        ti,
 	}
 }
 
@@ -818,7 +846,25 @@ func (m confirmInlineModel) View() string {
 	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, m.label)
 	line := fmt.Sprintf("%s (y/n): %s", label, m.input.View())
-	frame.SetInputsPrompt(line)
+	if m.useInfo {
+		frame.SetInfoPrompt(line)
+	} else {
+		if len(m.inputsPrompt) > 0 {
+			frame.SetInputsPrompt(m.inputsPrompt...)
+		}
+		if len(m.inputsRaw) > 0 {
+			if len(frame.Inputs) == 0 {
+				frame.SetInputsRaw(m.inputsRaw...)
+			} else {
+				frame.AppendInputsRaw(m.inputsRaw...)
+			}
+		}
+		if len(m.inputsPrompt) == 0 && len(m.inputsRaw) == 0 {
+			frame.SetInputsPrompt(line)
+		} else {
+			frame.AppendInputsPrompt(line)
+		}
+	}
 	return frame.Render()
 }
 
@@ -2071,16 +2117,27 @@ func (m workspaceSelectModel) filterWorkspaces() []WorkspaceChoice {
 	return out
 }
 
+type multiSelectStage int
+
+const (
+	multiSelectStageSelect multiSelectStage = iota
+	multiSelectStageConfirm
+)
+
 type workspaceMultiSelectModel struct {
-	title       string
-	workspaces  []WorkspaceChoice
-	blocked     []BlockedChoice
-	filtered    []WorkspaceChoice
-	selected    []WorkspaceChoice
-	selectedIDs []string
-	cursor      int
-	err         error
-	errorLine   string
+	title            string
+	workspaces       []WorkspaceChoice
+	blocked          []BlockedChoice
+	filtered         []WorkspaceChoice
+	selected         []WorkspaceChoice
+	selectedIDs      []string
+	cursor           int
+	err              error
+	errorLine        string
+	canceled         bool
+	stage            multiSelectStage
+	confirmModel     confirmInlineModel
+	confirmInputsRaw []string
 
 	theme    Theme
 	useColor bool
@@ -2112,6 +2169,23 @@ func (m workspaceMultiSelectModel) Init() tea.Cmd {
 }
 
 func (m workspaceMultiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.stage == multiSelectStageConfirm {
+		model, _ := m.confirmModel.Update(msg)
+		m.confirmModel = model.(confirmInlineModel)
+		if m.confirmModel.err != nil {
+			if errors.Is(m.confirmModel.err, ErrPromptCanceled) {
+				m.canceled = true
+			}
+			return m, tea.Quit
+		}
+		if m.confirmModel.done {
+			if !m.confirmModel.value {
+				m.canceled = true
+			}
+			return m, tea.Quit
+		}
+		return m, nil
+	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -2123,7 +2197,7 @@ func (m workspaceMultiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.errorLine = "select at least one workspace"
 				return m, nil
 			}
-			return m, tea.Quit
+			return m.startConfirmIfNeeded()
 		case tea.KeyUp:
 			if m.cursor > 0 {
 				m.cursor--
@@ -2141,7 +2215,7 @@ func (m workspaceMultiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.errorLine = "select at least one workspace"
 					return m, nil
 				}
-				return m, tea.Quit
+				return m.startConfirmIfNeeded()
 			}
 			if len(m.filtered) == 0 {
 				return m, nil
@@ -2170,6 +2244,16 @@ func (m workspaceMultiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m workspaceMultiSelectModel) View() string {
+	if m.stage == multiSelectStageConfirm {
+		frame := NewFrame(m.theme, m.useColor)
+		if len(m.confirmInputsRaw) > 0 {
+			frame.SetInputsRaw(m.confirmInputsRaw...)
+		}
+		label := promptLabel(m.theme, m.useColor, m.confirmModel.label)
+		line := fmt.Sprintf("%s (y/n): %s", label, m.confirmModel.input.View())
+		frame.AppendInputsPrompt(line)
+		return frame.Render()
+	}
 	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, "workspace")
 	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
@@ -2209,6 +2293,58 @@ func (m workspaceMultiSelectModel) View() string {
 		frame.AppendInfoRaw(blockedLines...)
 	}
 	return frame.Render()
+}
+
+func (m workspaceMultiSelectModel) startConfirmIfNeeded() (workspaceMultiSelectModel, tea.Cmd) {
+	label, needConfirm := confirmLabelForSelection(m.selected)
+	if !needConfirm {
+		return m, tea.Quit
+	}
+	m.confirmModel = newConfirmInlineModel(label, m.theme, m.useColor, false, nil, nil)
+	m.confirmInputsRaw = WorkspaceChoiceLines(m.filtered, -1, m.useColor, m.theme)
+	m.stage = multiSelectStageConfirm
+	return m, nil
+}
+
+func confirmLabelForSelection(selected []WorkspaceChoice) (string, bool) {
+	if len(selected) == 0 {
+		return "", false
+	}
+	if len(selected) == 1 {
+		warn := strings.TrimSpace(selected[0].Warning)
+		if warn == "" {
+			return "", false
+		}
+		switch strings.ToLower(warn) {
+		case "dirty changes":
+			return "This workspace has uncommitted changes. Remove anyway?", true
+		case "unpushed commits":
+			return "This workspace has unpushed commits. Remove anyway?", true
+		case "diverged or upstream missing":
+			return "This workspace has diverged from upstream. Remove anyway?", true
+		case "status unknown":
+			return "Workspace status could not be read. Remove anyway?", true
+		default:
+			return "This workspace has warnings. Remove anyway?", true
+		}
+	}
+	hasWarning := false
+	hasStrong := false
+	for _, item := range selected {
+		if strings.TrimSpace(item.Warning) != "" {
+			hasWarning = true
+		}
+		if item.WarningStrong {
+			hasStrong = true
+		}
+	}
+	if !hasWarning {
+		return fmt.Sprintf("Remove %d workspaces?", len(selected)), true
+	}
+	if hasStrong {
+		return fmt.Sprintf("Selected workspaces include uncommitted changes or status errors. Remove %d workspaces anyway?", len(selected)), true
+	}
+	return fmt.Sprintf("Selected workspaces have warnings. Remove %d workspaces anyway?", len(selected)), true
 }
 
 func (m workspaceMultiSelectModel) filterWorkspaces() []WorkspaceChoice {
@@ -2668,10 +2804,34 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 	}
 	for i, item := range items {
 		displayID := item.ID
-		if i == cursor && useColor {
-			displayID = lipgloss.NewStyle().Bold(true).Render(displayID)
+		hasWarn := strings.TrimSpace(item.Warning) != ""
+		warnStyle := theme.SoftWarn
+		if item.WarningStrong {
+			warnStyle = theme.Warn
+		}
+		warnTag := ""
+		if hasWarn {
+			warnTag = "[" + shortWarningTag(item.Warning) + "]"
+		}
+		if useColor {
+			if hasWarn {
+				if i == cursor {
+					displayID = theme.Warn.Copy().Bold(true).Render(displayID)
+				} else {
+					displayID = warnStyle.Render(displayID)
+				}
+			} else if i == cursor {
+				displayID = lipgloss.NewStyle().Bold(true).Render(displayID)
+			}
 		}
 		display := displayID
+		if warnTag != "" {
+			tag := warnTag
+			if useColor {
+				tag = warnStyle.Render(warnTag)
+			}
+			display += tag
+		}
 		desc := strings.TrimSpace(item.Description)
 		if desc != "" {
 			if useColor {
@@ -2696,6 +2856,27 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 			b.WriteString(line)
 			b.WriteString("\n")
 		}
+	}
+}
+
+func WorkspaceChoiceLines(items []WorkspaceChoice, cursor int, useColor bool, theme Theme) []string {
+	return collectLines(func(b *strings.Builder) {
+		renderWorkspaceChoiceList(b, items, cursor, useColor, theme)
+	})
+}
+
+func shortWarningTag(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "dirty changes":
+		return "dirty changes"
+	case "unpushed commits":
+		return "unpushed commits"
+	case "diverged or upstream missing":
+		return "diverged or upstream missing"
+	case "status unknown":
+		return "status unknown"
+	default:
+		return strings.TrimSpace(value)
 	}
 }
 
