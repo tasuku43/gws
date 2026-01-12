@@ -241,65 +241,40 @@ func (m inputsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m inputsModel) View() string {
-	var b strings.Builder
-	inputsTitle := "Inputs"
-	if m.useColor {
-		inputsTitle = m.theme.SectionTitle.Render(inputsTitle)
-	}
-	b.WriteString(inputsTitle)
-	b.WriteString("\n")
-
+	frame := NewFrame(m.theme, m.useColor)
+	labelTemplate := promptLabel(m.theme, m.useColor, "template")
+	var promptLines []string
 	if m.stage == stageTemplate {
-		prefix := promptPrefix(m.theme, m.useColor)
-		label := promptLabel(m.theme, m.useColor, "template")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.search.View())
-		b.WriteString(line)
-		b.WriteString("\n")
-		if len(m.filtered) == 0 {
-			msg := "no matches"
-			if m.useColor {
-				msg = m.theme.Muted.Render(msg)
-			}
-			b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
-		} else {
-			for i, item := range m.filtered {
-				display := item
-				if i == m.cursor && m.useColor {
-					display = lipgloss.NewStyle().Bold(true).Render(display)
-				}
-				b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), display))
-			}
-		}
+		promptLines = append(promptLines, fmt.Sprintf("%s: %s", labelTemplate, m.search.View()))
 	} else {
-		prefix := promptPrefix(m.theme, m.useColor)
-		label := promptLabel(m.theme, m.useColor, "template")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.template)
-		b.WriteString(line)
-		b.WriteString("\n")
+		promptLines = append(promptLines, fmt.Sprintf("%s: %s", labelTemplate, m.template))
 	}
 
 	if m.stage == stageWorkspace {
-		prefix := promptPrefix(m.theme, m.useColor)
 		label := promptLabel(m.theme, m.useColor, "workspace id")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.idInput.View())
-		b.WriteString(line)
-		b.WriteString("\n")
-		if m.errorLine != "" {
-			msg := m.errorLine
-			if m.useColor {
-				msg = m.theme.Error.Render(msg)
-			}
-			b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
-		}
+		promptLines = append(promptLines, fmt.Sprintf("%s: %s", label, m.idInput.View()))
 	} else if strings.TrimSpace(m.workspaceID) != "" {
-		prefix := promptPrefix(m.theme, m.useColor)
 		label := promptLabel(m.theme, m.useColor, "workspace id")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.workspaceID)
-		b.WriteString(line)
-		b.WriteString("\n")
+		promptLines = append(promptLines, fmt.Sprintf("%s: %s", label, m.workspaceID))
+	}
+	frame.SetInputsPrompt(promptLines...)
+
+	if m.stage == stageTemplate {
+		rawLines := collectLines(func(b *strings.Builder) {
+			renderChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+		})
+		frame.AppendInputsRaw(rawLines...)
 	}
 
-	return b.String()
+	if m.stage == stageWorkspace && m.errorLine != "" {
+		msg := m.errorLine
+		if m.useColor {
+			msg = m.theme.Error.Render(msg)
+		}
+		frame.AppendInputsRaw(fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+	}
+
+	return frame.Render()
 }
 
 func (m inputsModel) currentWorkspaceID() string {
@@ -395,10 +370,11 @@ func (m confirmInlineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m confirmInlineModel) View() string {
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, m.label)
-	line := fmt.Sprintf("%s%s %s (y/n): %s", output.Indent, prefix, label, m.input.View())
-	return line + "\n"
+	line := fmt.Sprintf("%s (y/n): %s", label, m.input.View())
+	frame.SetInputsPrompt(line)
+	return frame.Render()
 }
 
 // PromptInputInline collects a single inline value with an optional default and validation.
@@ -488,34 +464,22 @@ func (m inputInlineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m inputInlineModel) View() string {
-	var b strings.Builder
-	title := strings.TrimSpace(m.title)
-	if title == "" {
-		title = "Inputs"
-	}
-	if m.useColor {
-		title = m.theme.SectionTitle.Render(title)
-	}
-	b.WriteString(title)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, m.label)
 	defaultText := ""
 	if strings.TrimSpace(m.defaultValue) != "" {
 		defaultText = fmt.Sprintf(" [default: %s]", m.defaultValue)
 	}
-	line := fmt.Sprintf("%s%s %s%s: %s", output.Indent, prefix, label, defaultText, m.input.View())
+	line := fmt.Sprintf("%s%s: %s", label, defaultText, m.input.View())
+	frame.SetInputsPrompt(line)
 	if strings.TrimSpace(m.errorLine) != "" {
 		errLine := m.errorLine
 		if m.useColor {
 			errLine = m.theme.Error.Render(errLine)
 		}
-		line = fmt.Sprintf("%s\n%s%s%s %s", line, output.Indent, output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), errLine)
+		frame.AppendInputsRaw(fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), errLine))
 	}
-	b.WriteString(line)
-	b.WriteString("\n")
-	return b.String()
+	return frame.Render()
 }
 
 // PromptTemplateRepos lets users pick one or more repos from a list with filtering.
@@ -737,55 +701,48 @@ func (m templateRepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m templateRepoSelectModel) View() string {
-	var b strings.Builder
-	section := "Inputs"
-	if m.useColor {
-		section = m.theme.SectionTitle.Render(section)
-	}
-	b.WriteString(section)
-	b.WriteString("\n")
+	frame := NewFrame(m.theme, m.useColor)
 
-	prefix := promptPrefix(m.theme, m.useColor)
 	labelName := promptLabel(m.theme, m.useColor, "template name")
 	templateName := m.templateName
 	if m.stage == stageTemplateName {
 		templateName = m.nameInput.View()
 	}
-	lineName := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, labelName, templateName)
-	b.WriteString(lineName)
-	b.WriteString("\n")
-
-	label := promptLabel(m.theme, m.useColor, "repo")
+	labelRepo := promptLabel(m.theme, m.useColor, "repo")
 	repoInput := m.repoInput.View()
 	if m.stage == stageTemplateName {
 		repoInput = ""
 	}
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, repoInput)
-	b.WriteString(line)
-	b.WriteString("\n")
-	renderRepoChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
+	frame.SetInputsPrompt(
+		fmt.Sprintf("%s: %s", labelName, templateName),
+		fmt.Sprintf("%s: %s", labelRepo, repoInput),
+	)
 
-	b.WriteString("\n")
-	selTitle := "Selected"
-	if m.useColor {
-		selTitle = m.theme.SectionTitle.Render(selTitle)
-	}
-	b.WriteString(selTitle)
-	b.WriteString("\n")
-	renderSelectedRepoList(&b, m.selected, m.useColor, m.theme)
+	rawLines := collectLines(func(b *strings.Builder) {
+		renderRepoChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+	})
+	frame.AppendInputsRaw(rawLines...)
+
+	frame.SetInfo("selected")
+	selectedLines := collectLines(func(b *strings.Builder) {
+		renderSelectedRepoList(b, m.selected, m.useColor, m.theme)
+	})
+	frame.AppendInfoRaw(selectedLines...)
 
 	if m.errorLine != "" {
 		msg := m.errorLine
 		if m.useColor {
 			msg = m.theme.Error.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
 	}
 
 	infoPrefix := mutedToken(m.theme, m.useColor, output.StepPrefix)
-	b.WriteString(fmt.Sprintf("\n%s%s finish: Ctrl+D or type \"done\"\n", output.Indent, infoPrefix))
-	b.WriteString(fmt.Sprintf("%s%s enter: add highlighted repo\n", output.Indent, infoPrefix))
-	return b.String()
+	frame.AppendInfoRaw(
+		fmt.Sprintf("%s%s finish: Ctrl+D or type \"done\"", output.Indent, infoPrefix),
+		fmt.Sprintf("%s%s enter: add highlighted repo", output.Indent, infoPrefix),
+	)
+	return frame.Render()
 }
 
 func (m templateRepoSelectModel) filterChoices() []PromptChoice {
@@ -904,32 +861,26 @@ func (m choiceSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m choiceSelectModel) View() string {
-	var b strings.Builder
-	section := "Inputs"
-	if m.useColor {
-		section = m.theme.SectionTitle.Render(section)
-	}
-	b.WriteString(section)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, m.label)
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.input.View())
-	b.WriteString(line)
-	b.WriteString("\n")
-	renderRepoChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
+	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
+
+	rawLines := collectLines(func(b *strings.Builder) {
+		renderRepoChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+	})
+	frame.AppendInputsRaw(rawLines...)
 
 	if m.errorLine != "" {
 		msg := m.errorLine
 		if m.useColor {
 			msg = m.theme.Error.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
 	}
 
 	infoPrefix := mutedToken(m.theme, m.useColor, output.StepPrefix)
-	b.WriteString(fmt.Sprintf("\n%s%s enter: select highlighted %s\n", output.Indent, infoPrefix, m.label))
-	return b.String()
+	frame.AppendInfoRaw(fmt.Sprintf("%s%s enter: select highlighted %s", output.Indent, infoPrefix, m.label))
+	return frame.Render()
 }
 
 func (m choiceSelectModel) filterChoices() []PromptChoice {
@@ -1045,42 +996,35 @@ func (m multiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m multiSelectModel) View() string {
-	var b strings.Builder
-	section := "Inputs"
-	if m.useColor {
-		section = m.theme.SectionTitle.Render(section)
-	}
-	b.WriteString(section)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, m.label)
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.input.View())
-	b.WriteString(line)
-	b.WriteString("\n")
-	renderRepoChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
+	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
 
-	b.WriteString("\n")
-	selTitle := "Selected"
-	if m.useColor {
-		selTitle = m.theme.SectionTitle.Render(selTitle)
-	}
-	b.WriteString(selTitle)
-	b.WriteString("\n")
-	renderSelectedChoiceList(&b, m.selected, m.useColor, m.theme)
+	rawLines := collectLines(func(b *strings.Builder) {
+		renderRepoChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+	})
+	frame.AppendInputsRaw(rawLines...)
+
+	frame.SetInfo("selected")
+	selectedLines := collectLines(func(b *strings.Builder) {
+		renderSelectedChoiceList(b, m.selected, m.useColor, m.theme)
+	})
+	frame.AppendInfoRaw(selectedLines...)
 
 	if m.errorLine != "" {
 		msg := m.errorLine
 		if m.useColor {
 			msg = m.theme.Error.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
 	}
 
 	infoPrefix := mutedToken(m.theme, m.useColor, output.StepPrefix)
-	b.WriteString(fmt.Sprintf("\n%s%s finish: Ctrl+D or type \"done\"\n", output.Indent, infoPrefix))
-	b.WriteString(fmt.Sprintf("%s%s enter: add highlighted %s\n", output.Indent, infoPrefix, m.label))
-	return b.String()
+	frame.AppendInfoRaw(
+		fmt.Sprintf("%s%s finish: Ctrl+D or type \"done\"", output.Indent, infoPrefix),
+		fmt.Sprintf("%s%s enter: add highlighted %s", output.Indent, infoPrefix, m.label),
+	)
+	return frame.Render()
 }
 
 func (m multiSelectModel) filterChoices() []PromptChoice {
@@ -1154,46 +1098,17 @@ func (m templateNameModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m templateNameModel) View() string {
-	var b strings.Builder
-	header := m.title
-	if strings.TrimSpace(m.value) != "" {
-		header = fmt.Sprintf("%s (template: %s)", m.title, m.value)
-	}
-	if m.useColor {
-		header = m.theme.Header.Render(header)
-	}
-	b.WriteString(header)
-	b.WriteString("\n\n")
-
-	section := "Inputs"
-	if m.useColor {
-		section = m.theme.SectionTitle.Render(section)
-	}
-	b.WriteString(section)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, "template name")
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.input.View())
-	b.WriteString(line)
-	b.WriteString("\n")
-
+	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
 	if m.errorLine != "" {
 		msg := m.errorLine
 		if m.useColor {
 			msg = m.theme.Error.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		frame.AppendInputsRaw(fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
 	}
-	return b.String()
-}
-
-func promptPrefix(theme Theme, useColor bool) string {
-	prefix := output.StepPrefix
-	if useColor {
-		return theme.Accent.Render(prefix)
-	}
-	return prefix
+	return frame.Render()
 }
 
 func promptLabel(theme Theme, useColor bool, label string) string {
@@ -1208,6 +1123,28 @@ func mutedToken(theme Theme, useColor bool, token string) string {
 		return theme.Muted.Render(token)
 	}
 	return token
+}
+
+func collectLines(render func(*strings.Builder)) []string {
+	var b strings.Builder
+	render(&b)
+	return splitLines(b.String())
+}
+
+func splitLines(text string) []string {
+	trimmed := strings.TrimRight(text, "\n")
+	if strings.TrimSpace(trimmed) == "" {
+		return nil
+	}
+	parts := strings.Split(trimmed, "\n")
+	out := make([]string, 0, len(parts))
+	for _, line := range parts {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 func max(a, b int) int {
@@ -1296,36 +1233,21 @@ func (m workspaceSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m workspaceSelectModel) View() string {
-	var b strings.Builder
-	title := "Inputs"
-	if m.useColor {
-		title = m.theme.SectionTitle.Render(title)
-	}
-	b.WriteString(title)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, "workspace id")
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.input.View())
-	b.WriteString(line)
-	b.WriteString("\n")
-	renderWorkspaceChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
+	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
+	rawLines := collectLines(func(b *strings.Builder) {
+		renderWorkspaceChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+	})
+	frame.AppendInputsRaw(rawLines...)
 	if len(m.blocked) > 0 {
-		b.WriteString("\n")
-		infoTitle := "Info"
-		if m.useColor {
-			infoTitle = m.theme.SectionTitle.Render(infoTitle)
-		}
-		b.WriteString(infoTitle)
-		b.WriteString("\n")
-		infoPrefix := output.StepPrefix
-		if m.useColor {
-			infoPrefix = m.theme.Muted.Render(infoPrefix)
-		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, infoPrefix, "blocked workspaces"))
-		renderBlockedChoiceList(&b, m.blocked, m.useColor, m.theme)
+		frame.SetInfo("blocked workspaces")
+		blockedLines := collectLines(func(b *strings.Builder) {
+			renderBlockedChoiceList(b, m.blocked, m.useColor, m.theme)
+		})
+		frame.AppendInfoRaw(blockedLines...)
 	}
-	return b.String()
+	return frame.Render()
 }
 
 func (m workspaceSelectModel) filterWorkspaces() []WorkspaceChoice {
@@ -1441,58 +1363,42 @@ func (m workspaceMultiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m workspaceMultiSelectModel) View() string {
-	var b strings.Builder
-	section := "Inputs"
-	if m.useColor {
-		section = m.theme.SectionTitle.Render(section)
-	}
-	b.WriteString(section)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
+	frame := NewFrame(m.theme, m.useColor)
 	label := promptLabel(m.theme, m.useColor, "workspace")
-	line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.input.View())
-	b.WriteString(line)
-	b.WriteString("\n")
-	renderWorkspaceChoiceList(&b, m.filtered, m.cursor, m.useColor, m.theme)
+	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
+	rawLines := collectLines(func(b *strings.Builder) {
+		renderWorkspaceChoiceList(b, m.filtered, m.cursor, m.useColor, m.theme)
+	})
+	frame.AppendInputsRaw(rawLines...)
 
-	b.WriteString("\n")
-	selTitle := "Selected"
-	if m.useColor {
-		selTitle = m.theme.SectionTitle.Render(selTitle)
-	}
-	b.WriteString(selTitle)
-	b.WriteString("\n")
-	renderSelectedWorkspaceList(&b, m.selected, m.useColor, m.theme)
+	frame.SetInfo("selected")
+	selectedLines := collectLines(func(b *strings.Builder) {
+		renderSelectedWorkspaceList(b, m.selected, m.useColor, m.theme)
+	})
+	frame.AppendInfoRaw(selectedLines...)
 
 	if m.errorLine != "" {
 		msg := m.errorLine
 		if m.useColor {
 			msg = m.theme.Error.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
 	}
 
 	infoPrefix := mutedToken(m.theme, m.useColor, output.StepPrefix)
-	b.WriteString(fmt.Sprintf("\n%s%s finish: Ctrl+D or type \"done\"\n", output.Indent, infoPrefix))
-	b.WriteString(fmt.Sprintf("%s%s enter: add highlighted workspace\n", output.Indent, infoPrefix))
+	frame.AppendInfoRaw(
+		fmt.Sprintf("%s%s finish: Ctrl+D or type \"done\"", output.Indent, infoPrefix),
+		fmt.Sprintf("%s%s enter: add highlighted workspace", output.Indent, infoPrefix),
+	)
 
 	if len(m.blocked) > 0 {
-		b.WriteString("\n")
-		infoTitle := "Info"
-		if m.useColor {
-			infoTitle = m.theme.SectionTitle.Render(infoTitle)
-		}
-		b.WriteString(infoTitle)
-		b.WriteString("\n")
-		infoPrefix := output.StepPrefix
-		if m.useColor {
-			infoPrefix = m.theme.Muted.Render(infoPrefix)
-		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent, infoPrefix, "blocked workspaces"))
-		renderBlockedChoiceList(&b, m.blocked, m.useColor, m.theme)
+		frame.AppendInfo("blocked workspaces")
+		blockedLines := collectLines(func(b *strings.Builder) {
+			renderBlockedChoiceList(b, m.blocked, m.useColor, m.theme)
+		})
+		frame.AppendInfoRaw(blockedLines...)
 	}
-	return b.String()
+	return frame.Render()
 }
 
 func (m workspaceMultiSelectModel) filterWorkspaces() []WorkspaceChoice {
@@ -1651,46 +1557,36 @@ func (m addInputsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m addInputsModel) View() string {
-	var b strings.Builder
-	title := "Inputs"
-	if m.useColor {
-		title = m.theme.SectionTitle.Render(title)
-	}
-	b.WriteString(title)
-	b.WriteString("\n")
-
-	prefix := promptPrefix(m.theme, m.useColor)
-
+	frame := NewFrame(m.theme, m.useColor)
+	labelWorkspace := promptLabel(m.theme, m.useColor, "workspace id")
 	if m.stage == addStageWorkspace {
-		label := promptLabel(m.theme, m.useColor, "workspace id")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.wsInput.View())
-		b.WriteString(line)
-		b.WriteString("\n")
-		renderWorkspaceChoiceList(&b, m.wsFiltered, m.cursor, m.useColor, m.theme)
+		frame.SetInputsPrompt(fmt.Sprintf("%s: %s", labelWorkspace, m.wsInput.View()))
+		rawLines := collectLines(func(b *strings.Builder) {
+			renderWorkspaceChoiceList(b, m.wsFiltered, m.cursor, m.useColor, m.theme)
+		})
+		frame.AppendInputsRaw(rawLines...)
 	} else {
-		label := promptLabel(m.theme, m.useColor, "workspace id")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.workspaceID)
-		b.WriteString(line)
-		b.WriteString("\n")
+		frame.SetInputsPrompt(fmt.Sprintf("%s: %s", labelWorkspace, m.workspaceID))
 		if selected, ok := m.selectedWorkspace(); ok {
-			renderRepoDetailList(&b, selected.Repos, output.Indent+output.Indent, m.useColor, m.theme)
+			rawLines := collectLines(func(b *strings.Builder) {
+				renderRepoDetailList(b, selected.Repos, output.Indent+output.Indent, m.useColor, m.theme)
+			})
+			frame.AppendInputsRaw(rawLines...)
 		}
 	}
 
+	labelRepo := promptLabel(m.theme, m.useColor, "repo")
 	if m.stage == addStageRepo {
-		label := promptLabel(m.theme, m.useColor, "repo")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.repoInput.View())
-		b.WriteString(line)
-		b.WriteString("\n")
-		renderChoiceList(&b, m.repoLabels(), m.cursor, m.useColor, m.theme)
+		frame.AppendInputsPrompt(fmt.Sprintf("%s: %s", labelRepo, m.repoInput.View()))
+		rawLines := collectLines(func(b *strings.Builder) {
+			renderChoiceList(b, m.repoLabels(), m.cursor, m.useColor, m.theme)
+		})
+		frame.AppendInputsRaw(rawLines...)
 	} else if m.repoLabel != "" {
-		label := promptLabel(m.theme, m.useColor, "repo")
-		line := fmt.Sprintf("%s%s %s: %s", output.Indent, prefix, label, m.repoLabel)
-		b.WriteString(line)
-		b.WriteString("\n")
+		frame.AppendInputsPrompt(fmt.Sprintf("%s: %s", labelRepo, m.repoLabel))
 	}
 
-	return b.String()
+	return frame.Render()
 }
 
 func (m addInputsModel) maxCursor() int {
