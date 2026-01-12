@@ -102,6 +102,7 @@ Same behavior as the former `gws issue`.
   - Branch: defaults to `issue/<number>`. Before proceeding, prompt the user with the default and allow editing unless `--no-prompt` or `--branch` is supplied.
   - For GitHub issues, uses `gh api` to fetch the issue title and saves it as the workspace description.
     - If the branch exists in the bare store, use it.
+    - If the branch exists on `origin` but not locally, fetch it and create a tracking branch.
     - If not, create it from a base ref.
   - Base ref: defaults to the standard detection used by `gws add` (prefer `HEAD`, then `origin/HEAD`, then `main`/`master`/`develop` locally or on origin). `--base` overrides detection; must resolve in the bare store or as `origin/<ref>`.
   - Repo resolution:
@@ -116,7 +117,7 @@ Same behavior as the former `gws issue`.
   - Step 3: multi-select issues using the same add/remove loop as `gws template new` (filterable list; `<Enter>` adds; `<Ctrl+D>` or `done` to finish; minimum 1 selection).
   - For each selected issue:
     - Workspace ID = `ISSUE-<number>-<owner>-<repo>` (no per-item override in this flow).
-    - Branch = `issue/<number>`.
+    - Branch defaults to `issue/<number>` and can be edited per issue in a list editor; duplicate branches must be re-entered.
     - Workspace description = issue title.
     - Base ref detection and repo missing handling are the same as the URL path.
   - Flags `--workspace-id`, `--branch`, and `--base` are only valid when a single issue is targeted (URL path). In picker mode with multiple selections, using these flags is an error.

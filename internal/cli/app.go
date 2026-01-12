@@ -462,7 +462,7 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 		validateBranch := func(v string) error {
 			return workspace.ValidateBranchName(ctx, v)
 		}
-		mode, tmplName, tmplWorkspaceID, tmplDesc, tmplBranches, reviewRepo, reviewPRs, issueRepo, issueIssues, err := ui.PromptCreateFlow("gws create", templateNames, tmplErr, reviewPrompt, issuePrompt, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor)
+		mode, tmplName, tmplWorkspaceID, tmplDesc, tmplBranches, reviewRepo, reviewPRs, issueRepo, issueSelections, err := ui.PromptCreateFlow("gws create", templateNames, tmplErr, reviewPrompt, issuePrompt, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor)
 		if err != nil {
 			return err
 		}
@@ -482,7 +482,7 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 			}
 			return nil
 		case "issue":
-			if err := runCreateIssueSelected(ctx, rootDir, noPrompt, issueRepo, issueIssues); err != nil {
+			if err := runCreateIssueSelected(ctx, rootDir, noPrompt, issueRepo, issueSelections); err != nil {
 				return err
 			}
 			return nil
@@ -951,6 +951,10 @@ func runCreateIssue(ctx context.Context, rootDir, issueURL, workspaceID, branch,
 			return err
 		}
 	}
+	store, err := repo.Open(ctx, rootDir, repoURL, true)
+	if err != nil {
+		return err
+	}
 
 	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 	wsDir, err := workspace.New(ctx, rootDir, workspaceID)
@@ -965,7 +969,7 @@ func runCreateIssue(ctx context.Context, rootDir, issueURL, workspaceID, branch,
 	}
 
 	output.Step(formatStep("worktree add", displayRepoName(repoURL), worktreeDest(rootDir, workspaceID, repoURL)))
-	if _, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, true); err != nil {
+	if _, err := addIssueWorktree(ctx, rootDir, workspaceID, repoURL, branch, baseRef, store.StorePath); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("issue setup failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -1092,6 +1096,10 @@ func runIssue(ctx context.Context, rootDir string, args []string, noPrompt bool)
 			return err
 		}
 	}
+	store, err := repo.Open(ctx, rootDir, repoURL, true)
+	if err != nil {
+		return err
+	}
 
 	output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 	wsDir, err := workspace.New(ctx, rootDir, workspaceID)
@@ -1106,7 +1114,7 @@ func runIssue(ctx context.Context, rootDir string, args []string, noPrompt bool)
 	}
 
 	output.Step(formatStep("worktree add", displayRepoName(repoURL), worktreeDest(rootDir, workspaceID, repoURL)))
-	if _, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, true); err != nil {
+	if _, err := addIssueWorktree(ctx, rootDir, workspaceID, repoURL, branch, baseRef, store.StorePath); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("issue setup failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -1188,7 +1196,10 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 		})
 	}
 
-	selectedIssues, err := ui.PromptMultiSelect(title, "issue", issueChoices, theme, useColor)
+	validateBranch := func(value string) error {
+		return workspace.ValidateBranchName(ctx, value)
+	}
+	selectedIssues, err := ui.PromptIssueSelectWithBranches(title, "issue", issueChoices, validateBranch, theme, useColor)
 	if err != nil {
 		return err
 	}
@@ -1208,6 +1219,10 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 			return err
 		}
 	}
+	store, err := repo.Open(ctx, rootDir, repoSpec, true)
+	if err != nil {
+		return err
+	}
 
 	repoURL := buildRepoURLFromParts(selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo)
 	type issueWorkspaceResult struct {
@@ -1219,11 +1234,11 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 	var failure error
 	var failureID string
 
-	for _, value := range selectedIssues {
-		num, err := strconv.Atoi(strings.TrimSpace(value))
+	for _, selection := range selectedIssues {
+		num, err := strconv.Atoi(strings.TrimSpace(selection.Value))
 		if err != nil {
-			failure = fmt.Errorf("invalid issue number: %s", value)
-			failureID = value
+			failure = fmt.Errorf("invalid issue number: %s", selection.Value)
+			failureID = selection.Value
 			break
 		}
 		description := ""
@@ -1231,7 +1246,10 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 			description = issue.Title
 		}
 		workspaceID := fmt.Sprintf("ISSUE-%d-%s-%s", num, selectedRepo.Owner, selectedRepo.Repo)
-		branch := fmt.Sprintf("issue/%d", num)
+		branch := strings.TrimSpace(selection.Branch)
+		if branch == "" {
+			branch = fmt.Sprintf("issue/%d", num)
+		}
 		output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 		wsDir, err := workspace.New(ctx, rootDir, workspaceID)
 		if err != nil {
@@ -1250,7 +1268,7 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 		}
 
 		output.Step(formatStep("worktree add", displayRepoName(repoURL), worktreeDest(rootDir, workspaceID, repoURL)))
-		if _, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, "", true); err != nil {
+		if _, err := addIssueWorktree(ctx, rootDir, workspaceID, repoURL, branch, "", store.StorePath); err != nil {
 			if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 				failure = fmt.Errorf("issue setup failed: %w (rollback failed: %v)", err, rollbackErr)
 			} else {
@@ -1281,7 +1299,7 @@ func runIssuePicker(ctx context.Context, rootDir string, noPrompt bool, title st
 	return nil
 }
 
-func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, repoSpec string, selectedIssues []string) error {
+func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, repoSpec string, selectedIssues []ui.IssueSelection) error {
 	if strings.TrimSpace(repoSpec) == "" {
 		return fmt.Errorf("repo is required")
 	}
@@ -1331,6 +1349,10 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 			return err
 		}
 	}
+	store, err := repo.Open(ctx, rootDir, repoSpec, true)
+	if err != nil {
+		return err
+	}
 
 	repoURL := buildRepoURLFromParts(selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo)
 	type issueWorkspaceResult struct {
@@ -1342,11 +1364,11 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 	var failure error
 	var failureID string
 
-	for _, value := range selectedIssues {
-		num, err := strconv.Atoi(strings.TrimSpace(value))
+	for _, selection := range selectedIssues {
+		num, err := strconv.Atoi(strings.TrimSpace(selection.Value))
 		if err != nil {
-			failure = fmt.Errorf("invalid issue number: %s", value)
-			failureID = value
+			failure = fmt.Errorf("invalid issue number: %s", selection.Value)
+			failureID = selection.Value
 			break
 		}
 		description := ""
@@ -1354,7 +1376,15 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 			description = issue.Title
 		}
 		workspaceID := fmt.Sprintf("ISSUE-%d-%s-%s", num, selectedRepo.Owner, selectedRepo.Repo)
-		branch := fmt.Sprintf("issue/%d", num)
+		branch := strings.TrimSpace(selection.Branch)
+		if branch == "" {
+			branch = fmt.Sprintf("issue/%d", num)
+		}
+		if err := workspace.ValidateBranchName(ctx, branch); err != nil {
+			failure = err
+			failureID = workspaceID
+			break
+		}
 		output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 		wsDir, err := workspace.New(ctx, rootDir, workspaceID)
 		if err != nil {
@@ -1373,7 +1403,7 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 		}
 
 		output.Step(formatStep("worktree add", displayRepoName(repoURL), worktreeDest(rootDir, workspaceID, repoURL)))
-		if _, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, "", true); err != nil {
+		if _, err := addIssueWorktree(ctx, rootDir, workspaceID, repoURL, branch, "", store.StorePath); err != nil {
 			if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 				failure = fmt.Errorf("issue setup failed: %w (rollback failed: %v)", err, rollbackErr)
 			} else {
@@ -2160,6 +2190,79 @@ func fetchPRHead(ctx context.Context, storePath, headRef string) error {
 		return err
 	}
 	return nil
+}
+
+func localBranchExists(ctx context.Context, storePath, branch string) (bool, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return false, fmt.Errorf("store path is required")
+	}
+	if strings.TrimSpace(branch) == "" {
+		return false, fmt.Errorf("branch is required")
+	}
+	ref := fmt.Sprintf("refs/heads/%s", branch)
+	_, exists, err := gitcmd.ShowRef(ctx, storePath, ref)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func remoteBranchExists(ctx context.Context, storePath, branch string) (bool, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return false, fmt.Errorf("store path is required")
+	}
+	if strings.TrimSpace(branch) == "" {
+		return false, fmt.Errorf("branch is required")
+	}
+	remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+	if _, exists, err := gitcmd.ShowRef(ctx, storePath, remoteRef); err != nil {
+		return false, err
+	} else if exists {
+		return true, nil
+	}
+	res, err := gitcmd.Run(ctx, []string{"ls-remote", "--heads", "origin", branch}, gitcmd.Options{Dir: storePath})
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(res.Stdout) != "", nil
+}
+
+func fetchRemoteBranch(ctx context.Context, storePath, branch string) error {
+	if strings.TrimSpace(storePath) == "" {
+		return fmt.Errorf("store path is required")
+	}
+	if strings.TrimSpace(branch) == "" {
+		return fmt.Errorf("branch is required")
+	}
+	gitcmd.Logf("git fetch origin %s", branch)
+	if _, err := gitcmd.Run(ctx, []string{"fetch", "origin", branch}, gitcmd.Options{Dir: storePath}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addIssueWorktree(ctx context.Context, rootDir, workspaceID, repoURL, branch, baseRef, storePath string) (workspace.Repo, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return workspace.Repo{}, fmt.Errorf("store path is required")
+	}
+	localExists, err := localBranchExists(ctx, storePath, branch)
+	if err != nil {
+		return workspace.Repo{}, err
+	}
+	if !localExists {
+		remoteExists, err := remoteBranchExists(ctx, storePath, branch)
+		if err != nil {
+			return workspace.Repo{}, err
+		}
+		if remoteExists {
+			if err := fetchRemoteBranch(ctx, storePath, branch); err != nil {
+				return workspace.Repo{}, err
+			}
+			remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+			return workspace.AddWithTrackingBranch(ctx, rootDir, workspaceID, repoURL, "", branch, remoteRef, false)
+		}
+	}
+	return workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, true)
 }
 
 func formatPRList(values []string) string {
