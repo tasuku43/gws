@@ -15,6 +15,7 @@
     - `gofmt -w .` (or `go fmt ./...` if you prefer)
     - `go test ./...`
 - If you change CLI behavior, update docs in `docs/` and task notes if needed.
+- For UI implementations, always refer to `docs/UI.md` as the authoritative spec.
 - Command specs live in `docs/specs/` (one file per subcommand, YAML frontmatter with `status`):
     - `status: planned` means spec-first discussion; implement only after consensus and flip to `implemented`.
     - New feature/CLI change flow: (1) draft/adjust spec in `docs/specs/<cmd>.md`, (2) review/agree, (3) implement, (4) update spec status, (5) run gofmt/go test.

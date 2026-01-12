@@ -1,7 +1,5 @@
 # UI Specification (Bubble Tea + Bubbles + Lip Gloss)
 
-Status: draft (MVP+)
-
 ## Goals
 - Codex CLI のように静かで一貫した出力体験を提供する
 - 対話は Bubble Tea に統一し、非対話はプレーン出力で整える
@@ -10,7 +8,6 @@ Status: draft (MVP+)
 ## Scope
 - Interactive (TTY): Bubble Tea + Bubbles + Lip Gloss
 - Non-interactive (non-TTY): plain text (no TUI), same layout rules
-- JSON/format switching: MVP では扱わない
 
 ## Layout (common)
 Sectioned layout. Inputs appear first when present; Info/Suggestion are optional:
@@ -20,6 +17,9 @@ Inputs
   <input line>
   <input line>
 
+Info
+  <warnings / skipped / blocked>
+
 Steps
   <step line>
   <step line>
@@ -28,9 +28,6 @@ Result
   <result line>
   <tree>
 
-Info
-  <warnings / skipped / blocked>
-
 Suggestion
   <next command>
 ```
@@ -38,12 +35,14 @@ Suggestion
 Rules:
 - Indent: 2 spaces
 - 1 blank line between sections
+- Section order is fixed: Inputs → Info → Steps → Result → Suggestion
+- Result lines are bullets (use the same prefix as Steps)
 - No success banner; success is implied in Result section
 
 ## Prefix & Indentation
 - Default prefix token: `•` (can be changed later)
 - Steps/list lines are prefixed with `2 spaces + prefix + space`
-- Result lines are prefixed with `2 spaces`
+- Result lines are prefixed with `2 spaces + prefix + space`
 
 Prefix coloring:
 - Info/list (Steps, Results): prefix is muted gray
@@ -92,11 +91,14 @@ Inputs
     └─ helmfiles
   • workspace id: SREP-123
 
+Info
+  • (optional warnings / skipped / blocked)
+
 Steps
   • worktree add helmfiles
 
 Result
-  /Users/me/gws/workspaces/SREP-123
+  • /Users/me/gws/workspaces/SREP-123
     └─ helmfiles (branch: SREP-123)
 ```
 
@@ -107,7 +109,7 @@ Steps
   › worktree add repo
 
 Result
-  /Users/me/gws/workspaces/SREP-123
+  • /Users/me/gws/workspaces/SREP-123
     ├─ repo
     └─ api
 ```
@@ -136,3 +138,7 @@ Result
 - Info section is optional and contains warnings / skipped / blocked items.
 - Errors should be emphasized with a red prefix and red text.
 - Suggestion section is optional and shown on TTY only (e.g. `cd <path>`).
+
+## Implementation contract
+- CLI output must use `ui.Renderer` (or `internal/core/output` helpers) and must not write directly to stdout via `fmt.Fprintf/Printf/Println` in UI paths.
+- Result lines must be rendered using `Bullet()` to enforce consistent prefixing.
