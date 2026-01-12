@@ -11,7 +11,6 @@ import (
 
 	"github.com/tasuku43/gws/internal/core/gitcmd"
 	"github.com/tasuku43/gws/internal/core/paths"
-	"github.com/tasuku43/gws/internal/domain/repospec"
 )
 
 type Store struct {
@@ -21,11 +20,10 @@ type Store struct {
 }
 
 func Get(ctx context.Context, rootDir string, repo string) (Store, error) {
-	spec, err := repospec.Normalize(repo)
+	spec, remoteURL, err := Normalize(repo)
 	if err != nil {
 		return Store{}, err
 	}
-	remoteURL := strings.TrimSpace(repo)
 
 	storePath := storePathForSpec(rootDir, spec)
 
@@ -60,11 +58,10 @@ func Get(ctx context.Context, rootDir string, repo string) (Store, error) {
 }
 
 func Open(ctx context.Context, rootDir string, repo string, fetch bool) (Store, error) {
-	spec, err := repospec.Normalize(repo)
+	spec, remoteURL, err := Normalize(repo)
 	if err != nil {
 		return Store{}, err
 	}
-	remoteURL := strings.TrimSpace(repo)
 
 	storePath := storePathForSpec(rootDir, spec)
 
@@ -87,7 +84,7 @@ func Open(ctx context.Context, rootDir string, repo string, fetch bool) (Store, 
 	}, nil
 }
 
-func ensureSrc(ctx context.Context, rootDir string, spec repospec.Spec, storePath, remoteURL string, fetch bool) error {
+func ensureSrc(ctx context.Context, rootDir string, spec Spec, storePath, remoteURL string, fetch bool) error {
 	srcPath := SrcPath(rootDir, spec)
 	if exists, err := paths.DirExists(srcPath); err != nil {
 		return err
@@ -113,7 +110,7 @@ func ensureSrc(ctx context.Context, rootDir string, spec repospec.Spec, storePat
 }
 
 func Exists(rootDir, repo string) (string, bool, error) {
-	spec, err := repospec.Normalize(repo)
+	spec, _, err := Normalize(repo)
 	if err != nil {
 		return "", false, err
 	}
@@ -125,9 +122,11 @@ func Exists(rootDir, repo string) (string, bool, error) {
 	return storePath, exists, nil
 }
 
-func storePathForSpec(rootDir string, spec repospec.Spec) string {
+func storePathForSpec(rootDir string, spec Spec) string {
 	return StorePath(rootDir, spec)
 }
+
+// (moved to paths.go)
 
 func normalizeStore(ctx context.Context, storePath, display string, fetch bool) error {
 	if _, err := gitcmd.Run(ctx, []string{"config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"}, gitcmd.Options{Dir: storePath}); err != nil {

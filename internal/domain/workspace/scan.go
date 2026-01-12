@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/tasuku43/gws/internal/core/gitcmd"
-	"github.com/tasuku43/gws/internal/domain/repospec"
+	"github.com/tasuku43/gws/internal/domain/repo"
 )
 
 func ScanRepos(ctx context.Context, wsDir string) ([]Repo, []error, error) {
@@ -103,7 +103,7 @@ func readRepoSpec(ctx context.Context, repoPath string) (string, string, error) 
 	if remoteURL == "" {
 		return "", "", fmt.Errorf("origin remote is empty")
 	}
-	spec, err := repospec.Normalize(remoteURL)
+	spec, _, err := repo.Normalize(remoteURL)
 	if err != nil {
 		return remoteURL, "", fmt.Errorf("origin remote invalid: %s", err)
 	}

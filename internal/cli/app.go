@@ -20,7 +20,6 @@ import (
 	"github.com/tasuku43/gws/internal/core/output"
 	"github.com/tasuku43/gws/internal/core/paths"
 	"github.com/tasuku43/gws/internal/domain/repo"
-	"github.com/tasuku43/gws/internal/domain/repospec"
 	"github.com/tasuku43/gws/internal/domain/template"
 	"github.com/tasuku43/gws/internal/domain/workspace"
 	"github.com/tasuku43/gws/internal/ops/doctor"
@@ -321,7 +320,7 @@ func runTemplateNew(ctx context.Context, rootDir string, args []string, noPrompt
 	}
 
 	for _, repoSpec := range repoSpecs {
-		if _, err := repospec.Normalize(repoSpec); err != nil {
+		if _, _, err := repo.Normalize(repoSpec); err != nil {
 			return err
 		}
 		if _, exists, err := repo.Exists(rootDir, repoSpec); err != nil {
@@ -2570,15 +2569,7 @@ func displayRepoKey(repoKey string) string {
 }
 
 func displayTemplateRepo(repoSpec string) string {
-	trimmed := strings.TrimSpace(repoSpec)
-	if trimmed == "" {
-		return ""
-	}
-	spec, ok := normalizeRepoSpec(trimmed)
-	if !ok {
-		return trimmed
-	}
-	return fmt.Sprintf("git@%s:%s/%s.git", spec.Host, spec.Owner, spec.Repo)
+	return repo.DisplaySpec(repoSpec)
 }
 
 func displayRepoSpec(repoSpec string) string {
@@ -2586,15 +2577,7 @@ func displayRepoSpec(repoSpec string) string {
 }
 
 func displayRepoName(repoSpec string) string {
-	trimmed := strings.TrimSpace(repoSpec)
-	if trimmed == "" {
-		return ""
-	}
-	spec, ok := normalizeRepoSpec(trimmed)
-	if !ok || spec.Repo == "" {
-		return trimmed
-	}
-	return spec.Repo
+	return repo.DisplayName(repoSpec)
 }
 
 func repoDestForSpec(rootDir, repoSpec string) string {
@@ -2610,8 +2593,8 @@ func repoDestForSpec(rootDir, repoSpec string) string {
 }
 
 func repoStoreRel(rootDir, repoSpec string) string {
-	spec, ok := normalizeRepoSpec(repoSpec)
-	if !ok {
+	spec, _, err := repo.Normalize(repoSpec)
+	if err != nil {
 		return ""
 	}
 	storePath := repo.StorePath(rootDir, spec)
@@ -2619,8 +2602,8 @@ func repoStoreRel(rootDir, repoSpec string) string {
 }
 
 func repoSrcRel(rootDir, repoSpec string) string {
-	spec, ok := normalizeRepoSpec(repoSpec)
-	if !ok {
+	spec, _, err := repo.Normalize(repoSpec)
+	if err != nil {
 		return ""
 	}
 	srcPath := repo.SrcPath(rootDir, spec)
@@ -2628,32 +2611,20 @@ func repoSrcRel(rootDir, repoSpec string) string {
 }
 
 func repoSrcAbs(rootDir, repoSpec string) string {
-	spec, ok := normalizeRepoSpec(repoSpec)
-	if !ok {
+	spec, _, err := repo.Normalize(repoSpec)
+	if err != nil {
 		return ""
 	}
 	return repo.SrcPath(rootDir, spec)
 }
 
 func worktreeDest(rootDir, workspaceID, repoSpec string) string {
-	spec, ok := normalizeRepoSpec(repoSpec)
-	if !ok || spec.Repo == "" {
+	spec, _, err := repo.Normalize(repoSpec)
+	if err != nil || spec.Repo == "" {
 		return ""
 	}
-	wsPath := filepath.Join(workspace.WorkspaceDir(rootDir, workspaceID), spec.Repo)
+	wsPath := workspace.WorktreePath(rootDir, workspaceID, spec.Repo)
 	return relPath(rootDir, wsPath)
-}
-
-func normalizeRepoSpec(repoSpec string) (repospec.Spec, bool) {
-	trimmed := strings.TrimSpace(repoSpec)
-	if trimmed == "" {
-		return repospec.Spec{}, false
-	}
-	spec, err := repospec.Normalize(trimmed)
-	if err != nil {
-		return repospec.Spec{}, false
-	}
-	return spec, true
 }
 
 func relPath(rootDir, path string) string {

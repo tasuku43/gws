@@ -74,7 +74,7 @@ func TestRepoGetWorkspaceAddRemove(t *testing.T) {
 	if _, err := workspace.Add(ctx, rootDir, "WS-1", repoSpec, "", true); err != nil {
 		t.Fatalf("workspace add: %v", err)
 	}
-	worktreePath := filepath.Join(workspace.WorkspaceDir(rootDir, "WS-1"), "repo")
+	worktreePath := workspace.WorktreePath(rootDir, "WS-1", "repo")
 	if _, err := os.Stat(worktreePath); err != nil {
 		t.Fatalf("worktree missing: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestWorkspaceAddRespectsFetchGrace(t *testing.T) {
 		t.Fatalf("workspace add: %v", err)
 	}
 
-	worktreePath := filepath.Join(workspace.WorkspaceDir(rootDir, "WS-1"), "repo")
+	worktreePath := workspace.WorktreePath(rootDir, "WS-1", "repo")
 	head := revParse(t, worktreePath, "HEAD")
 	if head != initialHash {
 		t.Fatalf("expected worktree HEAD to remain at initial hash due to fetch grace; got %s, want %s", head, initialHash)

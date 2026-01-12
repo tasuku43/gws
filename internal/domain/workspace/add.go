@@ -3,13 +3,11 @@ package workspace
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/tasuku43/gws/internal/core/gitcmd"
 	"github.com/tasuku43/gws/internal/core/paths"
 	"github.com/tasuku43/gws/internal/domain/repo"
-	"github.com/tasuku43/gws/internal/domain/repospec"
 )
 
 func Add(ctx context.Context, rootDir, workspaceID, repoSpec, alias string, fetch bool) (Repo, error) {
@@ -103,7 +101,7 @@ func AddWithTrackingBranch(ctx context.Context, rootDir, workspaceID, repoSpec, 
 }
 
 type addPrep struct {
-	spec         repospec.Spec
+	spec         repo.Spec
 	alias        string
 	store        repo.Store
 	worktreePath string
@@ -124,7 +122,7 @@ func prepareAdd(ctx context.Context, rootDir, workspaceID, repoSpec, alias strin
 		return addPrep{}, fmt.Errorf("workspace does not exist: %s", wsDir)
 	}
 
-	spec, err := repospec.Normalize(repoSpec)
+	spec, _, err := repo.Normalize(repoSpec)
 	if err != nil {
 		return addPrep{}, err
 	}
@@ -152,7 +150,7 @@ func prepareAdd(ctx context.Context, rootDir, workspaceID, repoSpec, alias strin
 		return addPrep{}, err
 	}
 
-	worktreePath := filepath.Join(wsDir, alias)
+	worktreePath := WorktreePath(rootDir, workspaceID, alias)
 	if exists, err := paths.DirExists(worktreePath); err != nil {
 		return addPrep{}, err
 	} else if exists {
@@ -264,8 +262,7 @@ func validateBranchName(ctx context.Context, branch string) error {
 	if strings.TrimSpace(branch) == "" {
 		return fmt.Errorf("branch is required")
 	}
-	_, err := gitcmd.Run(ctx, []string{"check-ref-format", "--branch", branch}, gitcmd.Options{})
-	if err != nil {
+	if err := gitcmd.CheckRefFormatBranch(ctx, branch); err != nil {
 		return fmt.Errorf("invalid branch name: %w", err)
 	}
 	return nil

@@ -35,8 +35,7 @@ func validateWorkspaceID(ctx context.Context, workspaceID string) error {
 	if workspaceID == "" {
 		return fmt.Errorf("workspace id is required")
 	}
-	_, err := gitcmd.Run(ctx, []string{"check-ref-format", "--branch", workspaceID}, gitcmd.Options{})
-	if err != nil {
+	if err := gitcmd.CheckRefFormatBranch(ctx, workspaceID); err != nil {
 		return fmt.Errorf("invalid workspace id: %w", err)
 	}
 	return nil
