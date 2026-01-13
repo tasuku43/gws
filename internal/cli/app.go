@@ -143,8 +143,8 @@ func runTemplate(ctx context.Context, rootDir string, args []string, noPrompt bo
 	switch args[0] {
 	case "ls":
 		return runTemplateList(ctx, rootDir, args[1:])
-	case "new":
-		return runTemplateNew(ctx, rootDir, args[1:], noPrompt)
+	case "add":
+		return runTemplateAdd(ctx, rootDir, args[1:], noPrompt)
 	default:
 		return fmt.Errorf("unknown template subcommand: %s", args[0])
 	}
@@ -222,34 +222,34 @@ func (b *boolFlag) IsBoolFlag() bool {
 	return true
 }
 
-func runTemplateNew(ctx context.Context, rootDir string, args []string, noPrompt bool) error {
-	newFlags := flag.NewFlagSet("template new", flag.ContinueOnError)
+func runTemplateAdd(ctx context.Context, rootDir string, args []string, noPrompt bool) error {
+	addFlags := flag.NewFlagSet("template add", flag.ContinueOnError)
 	var helpFlag bool
 	var repos stringSliceFlag
-	newFlags.Var(&repos, "repo", "repo spec (repeatable)")
-	newFlags.BoolVar(&helpFlag, "help", false, "show help")
-	newFlags.BoolVar(&helpFlag, "h", false, "show help")
-	newFlags.SetOutput(os.Stdout)
-	newFlags.Usage = func() {
-		printTemplateNewHelp(os.Stdout)
+	addFlags.Var(&repos, "repo", "repo spec (repeatable)")
+	addFlags.BoolVar(&helpFlag, "help", false, "show help")
+	addFlags.BoolVar(&helpFlag, "h", false, "show help")
+	addFlags.SetOutput(os.Stdout)
+	addFlags.Usage = func() {
+		printTemplateAddHelp(os.Stdout)
 	}
-	if err := newFlags.Parse(args); err != nil {
+	if err := addFlags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
 	if helpFlag {
-		printTemplateNewHelp(os.Stdout)
+		printTemplateAddHelp(os.Stdout)
 		return nil
 	}
-	if newFlags.NArg() > 1 {
-		return fmt.Errorf("usage: gws template new [<name>] [--repo <repo> ...]")
+	if addFlags.NArg() > 1 {
+		return fmt.Errorf("usage: gws template add [<name>] [--repo <repo> ...]")
 	}
 
 	name := ""
-	if newFlags.NArg() == 1 {
-		name = newFlags.Arg(0)
+	if addFlags.NArg() == 1 {
+		name = addFlags.Arg(0)
 	}
 
 	file, err := template.Load(rootDir)
@@ -273,7 +273,7 @@ func runTemplateNew(ctx context.Context, rootDir string, args []string, noPrompt
 		if len(choices) == 0 {
 			return fmt.Errorf("no repos found; run gws repo get first")
 		}
-		name, repoSpecs, err = ui.PromptTemplateRepos("gws template new", name, choices, theme, useColor)
+		name, repoSpecs, err = ui.PromptTemplateRepos("gws template add", name, choices, theme, useColor)
 		if err != nil {
 			return err
 		}
@@ -283,7 +283,7 @@ func runTemplateNew(ctx context.Context, rootDir string, args []string, noPrompt
 			if noPrompt {
 				return fmt.Errorf("template name is required with --no-prompt")
 			}
-			name, err = ui.PromptTemplateName("gws template new", "", theme, useColor)
+			name, err = ui.PromptTemplateName("gws template add", "", theme, useColor)
 			if err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ func runTemplateNew(ctx context.Context, rootDir string, args []string, noPrompt
 				return fmt.Errorf("no repos found; run gws repo get first")
 			}
 			var selected []string
-			name, selected, err = ui.PromptTemplateRepos("gws template new", name, choices, theme, useColor)
+			name, selected, err = ui.PromptTemplateRepos("gws template add", name, choices, theme, useColor)
 			if err != nil {
 				return err
 			}

@@ -1,10 +1,10 @@
 ---
-title: "gws template new"
+title: "gws template add"
 status: implemented
 ---
 
 ## Synopsis
-`gws template new <name> [--repo <repo> ...]`
+`gws template add <name> [--repo <repo> ...]`
 
 ## Intent
 Create a template entry in `templates.yaml` without manual YAML editing, so users can quickly define the repo set for new workspaces.

@@ -69,7 +69,7 @@ Same behavior as the former `gws review`.
   - `--no-prompt` with no URL => error.
   - Step 1: pick a repo from fetched bare stores whose origin remote is GitHub. Display `alias (owner/repo)`; filterable by substring.
   - Step 2: fetch open PRs for the repo via `gh api` (latest 50 open, sorted by updated desc).
-  - Step 3: multi-select PRs using the same add/remove loop as `gws template new` (filterable list; `<Enter>` adds; `<Ctrl+D>` or `done` to finish; minimum 1 selection).
+- Step 3: multi-select PRs using the same add/remove loop as `gws template add` (filterable list; `<Enter>` adds; `<Ctrl+D>` or `done` to finish; minimum 1 selection).
   - For each selected PR:
     - Workspace ID = `REVIEW-PR-<number>-<owner>-<repo>`.
     - Creates a local branch matching the PR head ref, tracking `origin/<head_ref>`.
@@ -114,7 +114,7 @@ Same behavior as the former `gws issue`.
   - `--no-prompt` with no URL => error.
   - Step 1: pick a repo from fetched bare stores whose origin remote resolves to a supported host. Display `alias (host/owner/repo)`; filterable by substring.
   - Step 2: fetch open issues for the chosen repo from the host API (GitHub via `gh api`; other hosts may be added later). Default fetch: latest 50 open issues sorted by updated desc.
-  - Step 3: multi-select issues using the same add/remove loop as `gws template new` (filterable list; `<Enter>` adds; `<Ctrl+D>` or `done` to finish; minimum 1 selection).
+- Step 3: multi-select issues using the same add/remove loop as `gws template add` (filterable list; `<Enter>` adds; `<Ctrl+D>` or `done` to finish; minimum 1 selection).
   - For each selected issue:
     - Workspace ID = `ISSUE-<number>-<owner>-<repo>` (no per-item override in this flow).
     - Branch defaults to `issue/<number>` and can be edited per issue in a list editor; duplicate branches must be re-entered.

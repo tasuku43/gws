@@ -17,7 +17,7 @@ Remove one or more template definitions from `templates.yaml` without manual edi
   - Otherwise removes the listed templates and writes the file back via atomic tmp+rename.
 - With no names provided and prompts allowed:
   - Opens a filterable list of existing template names (case-insensitive substring match).
-  - UI behavior mirrors `gws template new` selection: the highlighted item is added on `<Enter>` and removed from the candidate list; a minimum of 1 selection is required.
+- UI behavior mirrors `gws template add` selection: the highlighted item is added on `<Enter>` and removed from the candidate list; a minimum of 1 selection is required.
   - Finish keys: `<Ctrl+D>` or typing `done` then `<Enter>`. If nothing selected, show an error and stay in the loop.
   - With `--no-prompt`, error instead of opening the selector.
 - After removal, other templates remain unchanged; repo stores are untouched.
