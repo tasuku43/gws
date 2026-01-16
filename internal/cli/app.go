@@ -469,7 +469,7 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 	var templateName stringFlag
 	var reviewFlag boolFlag
 	var issueFlag boolFlag
-	var repoFlag boolFlag
+	var repoFlag stringFlag
 	var workspaceID string
 	var branch string
 	var baseRef string
@@ -506,7 +506,7 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 	templateMode := templateName.set
 	reviewMode := reviewFlag.value
 	issueMode := issueFlag.value
-	repoMode := repoFlag.value
+	repoMode := repoFlag.set
 	modeCount := 0
 	if templateMode {
 		modeCount++
@@ -583,7 +583,7 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 		validateBranch := func(v string) error {
 			return workspace.ValidateBranchName(ctx, v)
 		}
-		mode, tmplName, tmplWorkspaceID, tmplDesc, tmplBranches, reviewRepo, reviewPRs, issueRepo, issueSelections, repoSelected, err := ui.PromptCreateFlow("gws create", "", "", templateNames, tmplErr, repoChoices, repoErr, reviewPrompt, issuePrompt, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor)
+		mode, tmplName, tmplWorkspaceID, tmplDesc, tmplBranches, reviewRepo, reviewPRs, issueRepo, issueSelections, repoSelected, err := ui.PromptCreateFlow("gws create", "", "", templateNames, tmplErr, repoChoices, repoErr, reviewPrompt, issuePrompt, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor, "")
 		if err != nil {
 			return err
 		}
@@ -658,36 +658,78 @@ func runCreate(ctx context.Context, rootDir string, args []string, noPrompt bool
 		return runCreateIssue(ctx, rootDir, issueURL, workspaceID, branch, baseRef, noPrompt)
 	}
 	if repoMode {
-		if len(remaining) > 0 {
-			return fmt.Errorf("usage: gws create --repo")
-		}
-		if noPrompt {
-			return fmt.Errorf("--repo requires prompts")
+		if len(remaining) > 1 {
+			return fmt.Errorf("usage: gws create --repo [<repo>]")
 		}
 		if branch != "" || baseRef != "" {
 			return fmt.Errorf("--branch and --base are not valid with --repo")
 		}
-		if !isatty.IsTerminal(os.Stdin.Fd()) {
-			return fmt.Errorf("repo selection requires a TTY")
+		repoSpec := strings.TrimSpace(repoFlag.value)
+		if len(remaining) == 1 {
+			if repoSpec != "" && repoSpec != remaining[0] {
+				return fmt.Errorf("repo is specified twice: %s and %s", repoSpec, remaining[0])
+			}
+			repoSpec = remaining[0]
 		}
-		theme := ui.DefaultTheme()
-		useColor := isatty.IsTerminal(os.Stdout.Fd())
-		repoChoices, repoErr := buildTemplateRepoChoices(rootDir)
-		mode, _, tmplWorkspaceID, tmplDesc, tmplBranches, _, _, _, _, repoSelected, err := ui.PromptCreateFlow("gws create", "repo", workspaceID, nil, nil, repoChoices, repoErr, nil, nil, nil, nil, nil, func(v string) error {
-			return workspace.ValidateBranchName(ctx, v)
-		}, theme, useColor)
-		if err != nil {
-			return err
+		if repoSpec == "" {
+			if noPrompt {
+				return fmt.Errorf("--repo requires prompts or a repo argument")
+			}
+			if !isatty.IsTerminal(os.Stdin.Fd()) {
+				return fmt.Errorf("repo selection requires a TTY")
+			}
+			theme := ui.DefaultTheme()
+			useColor := isatty.IsTerminal(os.Stdout.Fd())
+			repoChoices, repoErr := buildTemplateRepoChoices(rootDir)
+			mode, _, tmplWorkspaceID, tmplDesc, tmplBranches, _, _, _, _, repoSelected, err := ui.PromptCreateFlow("gws create", "repo", workspaceID, nil, nil, repoChoices, repoErr, nil, nil, nil, nil, nil, func(v string) error {
+				return workspace.ValidateBranchName(ctx, v)
+			}, theme, useColor, "")
+			if err != nil {
+				return err
+			}
+			if mode != "repo" {
+				return fmt.Errorf("unknown mode: %s", mode)
+			}
+			inputs := createRepoInputs{
+				repos:       []string{repoSelected},
+				workspaceID: tmplWorkspaceID,
+				description: tmplDesc,
+				branches:    tmplBranches,
+				fromFlow:    true,
+			}
+			return runCreateRepoWithInputs(ctx, rootDir, inputs, noPrompt)
 		}
-		if mode != "repo" {
-			return fmt.Errorf("unknown mode: %s", mode)
+		if !noPrompt {
+			if !isatty.IsTerminal(os.Stdin.Fd()) {
+				return fmt.Errorf("repo prompts require a TTY")
+			}
+			theme := ui.DefaultTheme()
+			useColor := isatty.IsTerminal(os.Stdout.Fd())
+			mode, _, tmplWorkspaceID, tmplDesc, tmplBranches, _, _, _, _, repoSelected, err := ui.PromptCreateFlow("gws create", "repo", workspaceID, nil, nil, nil, nil, nil, nil, nil, nil, nil, func(v string) error {
+				return workspace.ValidateBranchName(ctx, v)
+			}, theme, useColor, repoSpec)
+			if err != nil {
+				return err
+			}
+			if mode != "repo" {
+				return fmt.Errorf("unknown mode: %s", mode)
+			}
+			if repoSelected != "" {
+				repoSpec = repoSelected
+			}
+			inputs := createRepoInputs{
+				repos:       []string{repoSpec},
+				workspaceID: tmplWorkspaceID,
+				description: tmplDesc,
+				branches:    tmplBranches,
+				fromFlow:    true,
+			}
+			return runCreateRepoWithInputs(ctx, rootDir, inputs, noPrompt)
 		}
 		inputs := createRepoInputs{
-			repos:       []string{repoSelected},
-			workspaceID: tmplWorkspaceID,
-			description: tmplDesc,
-			branches:    tmplBranches,
-			fromFlow:    true,
+			repos:       []string{repoSpec},
+			workspaceID: workspaceID,
+			fromFlow:    false,
 		}
 		return runCreateRepoWithInputs(ctx, rootDir, inputs, noPrompt)
 	}
@@ -702,6 +744,12 @@ func normalizeCreateArgs(args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--template" || arg == "-template" {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				out = append(out, arg+"=")
+				continue
+			}
+		}
+		if arg == "--repo" || arg == "-repo" {
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
 				out = append(out, arg+"=")
 				continue

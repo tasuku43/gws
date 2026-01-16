@@ -49,6 +49,12 @@ gws repo get git@github.com:octocat/Spoon-Knife.git
 gws create --template example MY-123
 ```
 
+Or create from a single repo:
+
+```bash
+gws create --repo git@github.com:octocat/Hello-World.git
+```
+
 Or run `gws create` with no args to pick a mode and fill inputs interactively.
 
 ### 5) Work and clean up
@@ -105,6 +111,7 @@ Core workflow:
 - `gws repo ls` - list repos already fetched
 - `gws template ls` - list templates from `templates.yaml`
 - `gws create --template <name> [<id>]` - create a workspace from a template
+- `gws create --repo [<repo>]` - create a workspace from a repo (prompts for id)
 - `gws add [<id>] [<repo>]` - add another repo worktree to a workspace
 - `gws ls` - list workspaces and repos
 - `gws open [<id>]` - open a workspace in an interactive subshell
