@@ -227,7 +227,7 @@ type createFlowModel struct {
 	useColor bool
 }
 
-func newCreateFlowModel(title string, templates []string, tmplErr error, repoChoices []PromptChoice, repoErr error, defaultWorkspaceID string, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool, startMode string) createFlowModel {
+func newCreateFlowModel(title string, templates []string, tmplErr error, repoChoices []PromptChoice, repoErr error, defaultWorkspaceID string, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool, startMode string, selectedRepo string) createFlowModel {
 	input := textinput.New()
 	input.Prompt = ""
 	input.Placeholder = "search"
@@ -252,8 +252,16 @@ func newCreateFlowModel(title string, templates []string, tmplErr error, repoCho
 		theme:              theme,
 		useColor:           useColor,
 	}
+	m.repoSelected = strings.TrimSpace(selectedRepo)
 	if strings.TrimSpace(startMode) != "" {
-		m.startMode(startMode)
+		if startMode == "repo" && m.repoSelected != "" {
+			m.mode = "repo"
+			m.templateRepos = []string{m.repoSelected}
+			m.templateModel = newInputsModelWithLabel("gws create", nil, m.repoSelected, m.defaultWorkspaceID, "repo", m.theme, m.useColor)
+			m.stage = createStageRepoWorkspace
+		} else {
+			m.startMode(startMode)
+		}
 	}
 	if m.stage == createStageMode {
 		m.filtered = m.filterModes()
@@ -1196,8 +1204,8 @@ func PromptIssueSelectWithBranches(title, label string, choices []PromptChoice, 
 	return append([]IssueSelection(nil), final.selectedIssues...), nil
 }
 
-func PromptCreateFlow(title string, startMode string, defaultWorkspaceID string, templates []string, templateErr error, repoChoices []PromptChoice, repoErr error, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool) (string, string, string, string, []string, string, []string, string, []IssueSelection, string, error) {
-	model := newCreateFlowModel(title, templates, templateErr, repoChoices, repoErr, defaultWorkspaceID, reviewRepos, issueRepos, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor, startMode)
+func PromptCreateFlow(title string, startMode string, defaultWorkspaceID string, templates []string, templateErr error, repoChoices []PromptChoice, repoErr error, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool, selectedRepo string) (string, string, string, string, []string, string, []string, string, []IssueSelection, string, error) {
+	model := newCreateFlowModel(title, templates, templateErr, repoChoices, repoErr, defaultWorkspaceID, reviewRepos, issueRepos, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor, startMode, selectedRepo)
 	if model.err != nil {
 		return "", "", "", "", nil, "", nil, "", nil, "", model.err
 	}

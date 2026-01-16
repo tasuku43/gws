@@ -4,7 +4,7 @@ status: implemented
 ---
 
 ## Synopsis
-`gws create [--template <name> | --review [<PR URL>] | --issue [<ISSUE_URL>] | --repo] [<WORKSPACE_ID>] [--workspace-id <id>] [--branch <name>] [--base <ref>] [--no-prompt]`
+`gws create [--template <name> | --review [<PR URL>] | --issue [<ISSUE_URL>] | --repo [<repo>]] [<WORKSPACE_ID>] [--workspace-id <id>] [--branch <name>] [--base <ref>] [--no-prompt]`
 
 ## Intent
 Unify all workspace creation flows under a single command and keep "create" semantics consistent across modes.
@@ -53,8 +53,9 @@ Same behavior as the former `gws new`.
 Create a workspace from a selected repo without using a template.
 
 ### Behavior
-- Requires prompts/TTY to select repos.
-- Step 1: select a repo (searchable single-select) from existing repo stores.
+- If `<repo>` is provided, use it directly and skip repo selection.
+- Without `<repo>`, requires prompts/TTY to select a repo.
+- Step 1 (selection path only): select a repo (searchable single-select) from existing repo stores.
 - Step 2: same flow as template mode after selection:
   - Decide the workspace ID.
   - Input an optional description.
