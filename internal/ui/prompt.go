@@ -237,13 +237,14 @@ type createFlowModel struct {
 	loadReviewPRs     func(string) ([]PromptChoice, error)
 	loadIssueChoices  func(string) ([]PromptChoice, error)
 	loadTemplateRepos func(string) ([]string, error)
+	onReposResolved   func([]string)
 	validateBranch    func(string) error
 
 	theme    Theme
 	useColor bool
 }
 
-func newCreateFlowModel(title string, templates []string, tmplErr error, repoChoices []PromptChoice, repoErr error, defaultWorkspaceID string, templateName string, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool, startMode string, selectedRepo string) createFlowModel {
+func newCreateFlowModel(title string, templates []string, tmplErr error, repoChoices []PromptChoice, repoErr error, defaultWorkspaceID string, templateName string, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), onReposResolved func([]string), validateBranch func(string) error, theme Theme, useColor bool, startMode string, selectedRepo string) createFlowModel {
 	input := textinput.New()
 	input.Prompt = ""
 	input.Placeholder = "search"
@@ -264,6 +265,7 @@ func newCreateFlowModel(title string, templates []string, tmplErr error, repoCho
 		loadReviewPRs:      loadReview,
 		loadIssueChoices:   loadIssue,
 		loadTemplateRepos:  loadTemplateRepos,
+		onReposResolved:    onReposResolved,
 		validateBranch:     validateBranch,
 		theme:              theme,
 		useColor:           useColor,
@@ -274,6 +276,9 @@ func newCreateFlowModel(title string, templates []string, tmplErr error, repoCho
 		if startMode == "repo" && m.repoSelected != "" {
 			m.mode = "repo"
 			m.templateRepos = []string{m.repoSelected}
+			if m.onReposResolved != nil {
+				m.onReposResolved(m.templateRepos)
+			}
 			m.templateModel = newInputsModelWithLabel("gws create", nil, m.repoSelected, m.defaultWorkspaceID, "repo", m.theme, m.useColor)
 			m.stage = createStageRepoWorkspace
 		} else {
@@ -450,6 +455,9 @@ func (m createFlowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			m.templateRepos = repos
+			if m.onReposResolved != nil {
+				m.onReposResolved(m.templateRepos)
+			}
 			m.beginDescriptionStage()
 			return m, nil
 		}
@@ -559,6 +567,9 @@ func (m createFlowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reviewRepoModel = model.(choiceSelectModel)
 		if m.reviewRepoModel.done {
 			m.reviewRepo = m.reviewRepoModel.value
+			if m.onReposResolved != nil {
+				m.onReposResolved([]string{m.reviewRepo})
+			}
 			choices, err := m.loadReviewPRs(m.reviewRepo)
 			if err != nil {
 				m.err = err
@@ -589,6 +600,9 @@ func (m createFlowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.issueRepoModel = model.(choiceSelectModel)
 		if m.issueRepoModel.done {
 			m.issueRepo = m.issueRepoModel.value
+			if m.onReposResolved != nil {
+				m.onReposResolved([]string{m.issueRepo})
+			}
 			choices, err := m.loadIssueChoices(m.issueRepo)
 			if err != nil {
 				m.err = err
@@ -620,6 +634,9 @@ func (m createFlowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.repoSelectModel.done {
 			m.repoSelected = m.repoSelectModel.value
 			m.templateRepos = []string{m.repoSelected}
+			if m.onReposResolved != nil {
+				m.onReposResolved(m.templateRepos)
+			}
 			m.templateModel = newInputsModelWithLabel("gws create", nil, m.repoSelected, m.defaultWorkspaceID, "repo", m.theme, m.useColor)
 			m.stage = createStageRepoWorkspace
 		}
@@ -1263,10 +1280,10 @@ func PromptIssueSelectWithBranches(title, label string, choices []PromptChoice, 
 	return append([]IssueSelection(nil), final.selectedIssues...), nil
 }
 
-func PromptCreateFlow(title string, startMode string, defaultWorkspaceID string, templateName string, templates []string, templateErr error, repoChoices []PromptChoice, repoErr error, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), validateBranch func(string) error, theme Theme, useColor bool, selectedRepo string) (string, string, string, string, []string, string, []string, string, []IssueSelection, string, error) {
+func PromptCreateFlow(title string, startMode string, defaultWorkspaceID string, templateName string, templates []string, templateErr error, repoChoices []PromptChoice, repoErr error, reviewRepos []PromptChoice, issueRepos []PromptChoice, loadReview func(string) ([]PromptChoice, error), loadIssue func(string) ([]PromptChoice, error), loadTemplateRepos func(string) ([]string, error), onReposResolved func([]string), validateBranch func(string) error, theme Theme, useColor bool, selectedRepo string) (string, string, string, string, []string, string, []string, string, []IssueSelection, string, error) {
 	debuglog.SetPrompt("create-flow")
 	defer debuglog.ClearPrompt()
-	model := newCreateFlowModel(title, templates, templateErr, repoChoices, repoErr, defaultWorkspaceID, templateName, reviewRepos, issueRepos, loadReview, loadIssue, loadTemplateRepos, validateBranch, theme, useColor, startMode, selectedRepo)
+	model := newCreateFlowModel(title, templates, templateErr, repoChoices, repoErr, defaultWorkspaceID, templateName, reviewRepos, issueRepos, loadReview, loadIssue, loadTemplateRepos, onReposResolved, validateBranch, theme, useColor, startMode, selectedRepo)
 	if model.err != nil {
 		return "", "", "", "", nil, "", nil, "", nil, "", model.err
 	}
