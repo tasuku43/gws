@@ -28,7 +28,7 @@ func printGlobalHelp(w io.Writer) {
 	fmt.Fprintln(w, helpCommand(theme, useColor, "create [mode flags] [args]", "create workspace (template/review/issue/repo)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "open [<WORKSPACE_ID>] [--shell]", "open workspace in subshell"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "add [<WORKSPACE_ID>] [<repo>]", "add repo worktree to workspace"))
-	fmt.Fprintln(w, helpCommand(theme, useColor, "ls", "list workspaces (with repos)"))
+	fmt.Fprintln(w, helpCommand(theme, useColor, "ls [--details]", "list workspaces (with repos/status details)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "status [<WORKSPACE_ID>]", "check dirty/untracked status"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "rm [<WORKSPACE_ID>]", "remove workspace (confirms on warnings)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "path --workspace", "print selected workspace path"))
