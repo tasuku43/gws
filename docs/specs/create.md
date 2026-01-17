@@ -15,6 +15,20 @@ Unify all workspace creation flows under a single command and keep "create" sema
   - The picker presents `template`, `repo`, `review`, `issue` and supports arrow selection with filterable search.
 - If none are provided and `--no-prompt` is set, error.
 - When prompts are used, mode flags (`--template`, `--review`, `--issue`, `--repo`) still run the unified create prompt flow so the Inputs section is rendered as a single in-place interaction.
+- When a repo is determined (via selection, URL parse, or template resolution), start a background fetch immediately to reduce lead time.
+  - Prefetch only needs to ensure the default branch is up-to-date for upcoming worktree creation.
+  - Wait for any in-flight prefetch before creating the worktree(s).
+  - If fetch is unnecessary due to the existing freshness/grace checks, skip the prefetch.
+
+### Inputs output (prefetch hint)
+When prefetch starts, show it under the repo entry so users can tell background fetch began.
+
+Example:
+```
+Inputs
+  • repo: git@github.com:tasuku43/gws.git
+    └─ prefetch: git fetch origin (background)
+```
 
 ## Mode: template
 Same behavior as the former `gws new`.
@@ -33,6 +47,7 @@ Same behavior as the former `gws new`.
   - Branch defaults to `WORKSPACE_ID`.
   - Refreshes the bare store only when the default branch is stale or missing (checked via `git ls-remote`, unless a recent fetch exists within `GWS_FETCH_GRACE_SECONDS`, default 30s); skips fetch when already up-to-date.
   - Base ref is auto-detected (prefers `HEAD`, then `origin/HEAD`, then `main`/`master`/`develop` locally or on origin).
+- If a repo is determined before worktree creation (template selection path), start prefetching for each repo immediately and wait for completion before creating worktrees.
 - When prompting is allowed, collects per-repo branch names interactively:
   - For each repo in the template, prompt: `branch for <alias> [default: <WORKSPACE_ID>]:`
   - The input box is pre-filled with `<WORKSPACE_ID>` so users can press Enter to accept or append (e.g., `-hotfix`) without retyping.
@@ -62,6 +77,7 @@ Create a workspace from a selected repo without using a template.
   - Input an optional description.
   - Decide per-repo branch names (same validation and duplicate handling as template mode).
 - Preflights selected repos and offers to run `gws repo get` if stores are missing (same as template mode).
+- Once the repo is determined, start prefetch immediately and wait for completion before creating the worktree.
 
 ### Success Criteria
 - Workspace directory exists with one worktree for the selected repo, on the chosen branch.
@@ -88,6 +104,7 @@ Same behavior as the former `gws review`.
   - Adds a worktree under `<root>/workspaces/<OWNER>-<REPO>-REVIEW-PR-<number>/<alias>` where:
     - Creates a local branch `<head_ref>` tracking `origin/<head_ref>`.
     - Workspace metadata stores branch name as `<head_ref>`.
+- Once the repo is determined, start prefetch immediately and wait for completion before creating the worktree.
 - If `PR URL` is omitted and prompts are allowed (interactive picker):
   - `--no-prompt` with no URL => error.
   - Step 1: pick a repo from fetched bare stores whose origin remote is GitHub. Display `alias (owner/repo)`; filterable by substring.
@@ -133,6 +150,7 @@ Same behavior as the former `gws issue`.
     - If the repo store is missing, prompt to run `gws repo get <repo>`; with `--no-prompt`, fail.
   - Worktree location: `<root>/workspaces/<WORKSPACE_ID>/<repo_name>`; branch = `issue/<number>`.
   - Existing worktree collision: if the target workspace already has a worktree on the target branch, error (no reuse in MVP).
+- Once the repo is determined, start prefetch immediately and wait for completion before creating the worktree.
 - If `ISSUE_URL` is omitted and prompts are allowed (interactive picker):
   - `--no-prompt` with no URL => error.
   - Step 1: pick a repo from fetched bare stores whose origin remote resolves to a supported host. Display `alias (host/owner/repo)`; filterable by substring.
