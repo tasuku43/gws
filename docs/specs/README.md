@@ -15,6 +15,7 @@ This directory holds command-level specifications in English. Each file uses fro
 - Command form: `gws <command> [flags] [args]`.
 - Root resolution precedence: `--root` flag > `GWS_ROOT` environment variable > default `~/gws`.
 - Common flags: `--root <path>`, `--no-prompt`, `--debug`, `--help`/`-h`.
+- Version: `gws --version` (or `gws version`) prints a single-line version and exits 0.
 - Output: human-readable text only in the current MVP; JSON output is future work.
 
 ## Debug logging
@@ -58,5 +59,6 @@ Current command specs live in this folder:
 - `docs/specs/rm.md`
 - `docs/specs/open.md`
 - `docs/specs/path.md`
+- `docs/specs/version.md`
 
 Add new files in the same format when introducing new commands or options.
