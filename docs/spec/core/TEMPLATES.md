@@ -25,8 +25,10 @@ Top-level key is `templates`. Each template has a `repos` list.
 templates:
   example:
     repos:
-      - git@github.com:octocat/Hello-World.git
-      - https://github.com/octocat/Spoon-Knife.git
+      - git@github.com:org/backend.git
+      - git@github.com:org/frontend.git
+      - git@github.com:org/manifests.git
+      - git@github.com:org/docs.git
 ```
 
 Notes:

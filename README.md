@@ -22,6 +22,42 @@ gws create --review https://github.com/owner/repo/pull/123   # GitHub only
 gws create --issue https://github.com/owner/repo/issues/123  # GitHub only
 ```
 
+If you omit options, gws switches to an interactive flow:
+
+```
+$ gws create
+Inputs
+  • mode: s (type to filter)
+    └─ repo - 1 repo only
+    └─ issue - From an issue (multi-select, GitHub only)
+    └─ review - From a review request (multi-select, GitHub only)
+    └─ template - From template
+```
+
+Review/issue modes are also interactive (repo + multi-select):
+
+```
+$ gws create --review
+Inputs
+  • repo: org/gws
+  • pull request: s (type to filter)
+Info
+  • selected
+    └─ #123 Fix status output
+    └─ #120 Add repo prompt
+```
+
+```
+$ gws create --issue
+Inputs
+  • repo: org/gws
+  • issue: s (type to filter)
+Info
+  • selected
+    └─ #45 Improve template flow
+    └─ #39 Add doctor checks
+```
+
 ### 2) Template = pseudo-monorepo workspace
 
 Define multiple repos as one task unit, then create them together:
@@ -30,8 +66,10 @@ Define multiple repos as one task unit, then create them together:
 templates:
   app:
     repos:
-      - git@github.com:org/api.git
-      - git@github.com:org/web.git
+      - git@github.com:org/backend.git
+      - git@github.com:org/frontend.git
+      - git@github.com:org/manifests.git
+      - git@github.com:org/docs.git
 ```
 
 ```bash
@@ -44,6 +82,18 @@ gws create --template app PROJ-123
 
 ```bash
 gws rm PROJ-123
+```
+
+Omitting the workspace id prompts selection:
+
+```
+$ gws rm
+Inputs
+  • workspace: s (type to filter)
+    └─ PROJ-123 [clean] - sample project
+      └─ gws (branch: PROJ-123-backend)
+    └─ PROJ-124 [dirty changes] - wip
+      └─ gws (branch: PROJ-124-backend)
 ```
 
 ## Requirements
@@ -79,97 +129,64 @@ gws init
 
 This creates `GWS_ROOT` with the standard layout and a starter `templates.yaml`.
 
-### 2) Define templates
+Root resolution order:
+1) `--root <path>`
+2) `GWS_ROOT` environment variable
+3) `~/gws` (default)
 
-Edit `templates.yaml` and list the repos you want in a workspace:
-
-```yaml
-templates:
-  example:
-    repos:
-      - git@github.com:octocat/Hello-World.git
-      - git@github.com:octocat/Spoon-Knife.git
-```
-
-Validate the file:
-
-```bash
-gws template validate
-```
-
-### 3) Fetch repos (bare store)
-
-```bash
-gws repo get git@github.com:octocat/Hello-World.git
-gws repo get git@github.com:octocat/Spoon-Knife.git
-```
-
-### 4) Create a workspace
-
-```bash
-gws create --template example MY-123
-```
-
-Or create from a single repo:
-
-```bash
-gws create --repo git@github.com:octocat/Hello-World.git
-```
-
-Or run `gws create` with no args to pick a mode and fill inputs interactively.
-
-### 5) Work and clean up
-
-```bash
-gws ls
-gws open MY-123
-gws status MY-123
-gws rm MY-123
-```
-
-gws opens an interactive subshell at the workspace root.
-
-## Provider support (summary)
-- `gws create --repo` and `gws create --template` are provider-agnostic (any Git host URL).
-- `gws create --review` and `gws create --issue` are GitHub-only today.
-
-## How gws lays out files
-
-gws keeps two top-level directories under `GWS_ROOT`:
+Default layout example:
 
 ```
-GWS_ROOT/
+~/gws/
   bare/        # bare repo store (shared Git objects)
   workspaces/  # task worktrees (one folder per workspace id)
   templates.yaml
 ```
 
-Notes:
+### 2) Fetch repos (bare store)
 
-- Workspace id must be a valid Git branch name, and it becomes the worktree branch name.
-- gws never changes your shell directory automatically.
+```bash
+gws repo get git@github.com:org/backend.git
+```
 
-## Root resolution
+### 3) Create a workspace
 
-gws resolves `GWS_ROOT` in this order:
+```bash
+gws create --repo git@github.com:org/backend.git
+```
 
-1. `--root <path>`
-2. `GWS_ROOT` environment variable
-3. `~/gws`
+You'll be prompted for a workspace id (e.g. `PROJ-123`).
 
-## Command overview (short)
+Or run `gws create` with no args to pick a mode and fill inputs interactively.
 
-- `gws init` - initialize root and `templates.yaml`
-- `gws repo get <repo>` - fetch bare repo store
-- `gws create ...` - create workspaces (repo/template/review/issue)
-- `gws open [<id>]` - open a workspace in a subshell
-- `gws status [<id>]` - check status
-- `gws rm [<id>]` - remove workspace with guardrails
+### 4) Work and clean up
+
+List workspaces:
+
+```bash
+gws ls
+```
+
+Open a workspace (prompts if omitted):
+
+```bash
+gws open PROJ-123
+```
+
+This launches an interactive subshell at the workspace root (parent cwd unchanged) and
+prefixes the prompt with `[gws:<WORKSPACE_ID>]`.
+
+Remove a workspace with guardrails (prompts if omitted):
+
+```bash
+gws rm PROJ-123
+```
 
 ## Help and docs
 
 - `docs/README.md` for documentation index
 - `docs/spec/README.md` for specs index and status
+- `docs/spec/commands/` for per-command specs (create/add/rm/etc.)
 - `docs/spec/core/TEMPLATES.md` for template format
 - `docs/spec/core/DIRECTORY_LAYOUT.md` for the file layout
 - `docs/spec/ui/UI.md` for output conventions

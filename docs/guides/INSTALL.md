@@ -20,7 +20,7 @@ For compatibility policy, see `docs/spec/core/COMPATIBILITY.md`.
 
 ## Install via Homebrew
 
-Homebrew support is part of Epic 1. This project uses GitHub Releases as the source of truth.
+Homebrew uses GitHub Releases as the source of truth (stable tags only).
 
 Install:
 - `brew tap tasuku43/gws`

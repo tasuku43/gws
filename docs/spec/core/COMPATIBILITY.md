@@ -20,7 +20,7 @@ Starting at `v1.0.0`:
 
 Supported:
 - GitHub Releases (binaries)
-- Homebrew (planned as part of Epic 1)
+- Homebrew (stable releases via this repo's Formula)
 - mise (GitHub Releases backend)
 
 Not supported:
@@ -32,4 +32,3 @@ Not supported:
 - Linux: `amd64`, `arm64`
 
 Windows is not part of the v0.1.0 distribution plan.
-
