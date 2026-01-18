@@ -1071,10 +1071,18 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 			failureID = workspaceID
 			break
 		}
-		if err := fetchPRHead(ctx, store.StorePath, pr.HeadRef); err != nil {
+		trackingExists, err := remoteTrackingExists(ctx, store.StorePath, pr.HeadRef)
+		if err != nil {
 			failure = err
 			failureID = workspaceID
 			break
+		}
+		if !trackingExists {
+			if err := fetchPRHead(ctx, store.StorePath, pr.HeadRef); err != nil {
+				failure = err
+				failureID = workspaceID
+				break
+			}
 		}
 
 		headRef := fmt.Sprintf("refs/remotes/origin/%s", pr.HeadRef)
@@ -1309,6 +1317,21 @@ func remoteBranchExists(ctx context.Context, storePath, branch string) (bool, er
 	return strings.TrimSpace(res.Stdout) != "", nil
 }
 
+func remoteTrackingExists(ctx context.Context, storePath, branch string) (bool, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return false, fmt.Errorf("store path is required")
+	}
+	if strings.TrimSpace(branch) == "" {
+		return false, fmt.Errorf("branch is required")
+	}
+	remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+	_, exists, err := gitcmd.ShowRef(ctx, storePath, remoteRef)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func fetchRemoteBranch(ctx context.Context, storePath, branch string) error {
 	if strings.TrimSpace(storePath) == "" {
 		return fmt.Errorf("store path is required")
@@ -1356,10 +1379,16 @@ func addIssueWorktreeWithRemoteInfo(ctx context.Context, rootDir, workspaceID, r
 		return workspace.Repo{}, err
 	}
 	if !localExists && remoteExists {
-		if err := fetchRemoteBranch(ctx, storePath, branch); err != nil {
+		remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+		trackingExists, err := remoteTrackingExists(ctx, storePath, branch)
+		if err != nil {
 			return workspace.Repo{}, err
 		}
-		remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+		if !trackingExists {
+			if err := fetchRemoteBranch(ctx, storePath, branch); err != nil {
+				return workspace.Repo{}, err
+			}
+		}
 		return workspace.AddWithTrackingBranch(ctx, rootDir, workspaceID, repoURL, "", branch, remoteRef, false)
 	}
 	return workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, false)
