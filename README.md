@@ -18,15 +18,6 @@ so humans and multiple AI agents can work in parallel without stepping on each o
 - People or teams changing multiple repos per task → templates create a task-level workspace (pseudo-monorepo).
 - People or teams overwhelmed by many worktrees and risky cleanup → guardrails in `gwst rm`.
 
-## Quick demo (30 seconds)
-
-```bash
-gwst init
-gwst create --review   # or --issue / --repo / --template
-gwst open              # drops into a subshell at the workspace root
-gwst rm                # guardrails against accidental deletion
-```
-
 ## What makes gwst different
 
 ### 1) `create` is the center
