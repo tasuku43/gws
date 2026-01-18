@@ -427,21 +427,33 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 	if strings.ToLower(selectedRepo.Provider) != "github" {
 		return fmt.Errorf("issue picker supports GitHub only for now: %s", selectedRepo.Host)
 	}
-	provider, err := providerByName(selectedRepo.Provider)
-	if err != nil {
-		return err
-	}
-	issues, err := provider.FetchIssues(ctx, selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo)
-	if err != nil {
-		return err
-	}
-	if len(issues) == 0 {
-		return fmt.Errorf("no issues found")
-	}
 
-	issueByNumber := make(map[int]issueSummary, len(issues))
-	for _, issue := range issues {
-		issueByNumber[issue.Number] = issue
+	type issueSelectionPlan struct {
+		number int
+		branch string
+		label  string
+		raw    ui.IssueSelection
+	}
+	plans := make([]issueSelectionPlan, 0, len(selectedIssues))
+	branchSet := make(map[string]struct{}, len(selectedIssues))
+	for _, selection := range selectedIssues {
+		num, err := strconv.Atoi(strings.TrimSpace(selection.Value))
+		if err != nil {
+			return fmt.Errorf("invalid issue number: %s", selection.Value)
+		}
+		branch := strings.TrimSpace(selection.Branch)
+		if branch == "" {
+			branch = fmt.Sprintf("issue/%d", num)
+		}
+		plans = append(plans, issueSelectionPlan{
+			number: num,
+			branch: branch,
+			label:  selection.Label,
+			raw:    selection,
+		})
+		if branch != "" {
+			branchSet[branch] = struct{}{}
+		}
 	}
 
 	theme := ui.DefaultTheme()
@@ -472,6 +484,19 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 		return err
 	}
 
+	branches := make([]string, 0, len(branchSet))
+	for branch := range branchSet {
+		branches = append(branches, branch)
+	}
+	remoteBranches, err := localRemoteBranches(ctx, store.StorePath, branches)
+	if err != nil {
+		return err
+	}
+	baseRef, err := workspace.ResolveBaseRef(ctx, store.StorePath)
+	if err != nil {
+		return err
+	}
+
 	repoURL := buildRepoURLFromParts(selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo)
 	type issueWorkspaceResult struct {
 		workspaceID string
@@ -482,22 +507,11 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 	var failure error
 	var failureID string
 
-	for _, selection := range selectedIssues {
-		num, err := strconv.Atoi(strings.TrimSpace(selection.Value))
-		if err != nil {
-			failure = fmt.Errorf("invalid issue number: %s", selection.Value)
-			failureID = selection.Value
-			break
-		}
-		description := ""
-		if issue, ok := issueByNumber[num]; ok {
-			description = issue.Title
-		}
+	for _, plan := range plans {
+		num := plan.number
+		description := issueTitleFromLabel(plan.label, num)
 		workspaceID := formatIssueWorkspaceID(selectedRepo.Owner, selectedRepo.Repo, num)
-		branch := strings.TrimSpace(selection.Branch)
-		if branch == "" {
-			branch = fmt.Sprintf("issue/%d", num)
-		}
+		branch := plan.branch
 		if err := workspace.ValidateBranchName(ctx, branch); err != nil {
 			failure = err
 			failureID = workspaceID
@@ -521,7 +535,7 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 		}
 
 		output.Step(formatStep("worktree add", displayRepoName(repoURL), worktreeDest(rootDir, workspaceID, repoURL)))
-		if _, err := addIssueWorktree(ctx, rootDir, workspaceID, repoURL, branch, "", store.StorePath); err != nil {
+		if _, err := addIssueWorktreeWithRemoteInfo(ctx, rootDir, workspaceID, repoURL, branch, baseRef, store.StorePath, remoteBranches[branch]); err != nil {
 			if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 				failure = fmt.Errorf("issue setup failed: %w (rollback failed: %v)", err, rollbackErr)
 			} else {
@@ -550,6 +564,26 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 		return fmt.Errorf("%s: %w", failureID, failure)
 	}
 	return nil
+}
+
+func localRemoteBranches(ctx context.Context, storePath string, branches []string) (map[string]bool, error) {
+	remote := make(map[string]bool, len(branches))
+	if strings.TrimSpace(storePath) == "" || len(branches) == 0 {
+		return remote, nil
+	}
+	for _, branch := range branches {
+		if strings.TrimSpace(branch) == "" {
+			continue
+		}
+		exists, err := remoteTrackingExists(ctx, storePath, branch)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			remote[branch] = true
+		}
+	}
+	return remote, nil
 }
 
 func buildIssueRepoChoices(rootDir string) ([]issueRepoChoice, error) {
@@ -707,6 +741,19 @@ func formatIssueList(values []string) string {
 	return strings.Join(out, ", ")
 }
 
+func issueTitleFromLabel(label string, number int) string {
+	trimmed := strings.TrimSpace(label)
+	if trimmed == "" {
+		return ""
+	}
+	prefix := fmt.Sprintf("#%d", number)
+	if !strings.HasPrefix(trimmed, prefix) {
+		return ""
+	}
+	title := strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
+	return title
+}
+
 func buildIssueChoices(issues []issueSummary) []ui.PromptChoice {
 	var choices []ui.PromptChoice
 	for _, issue := range issues {
@@ -731,7 +778,7 @@ func buildPRChoices(prs []prSummary) []ui.PromptChoice {
 		}
 		choices = append(choices, ui.PromptChoice{
 			Label: label,
-			Value: strconv.Itoa(pr.Number),
+			Value: encodeReviewSelection(pr),
 		})
 	}
 	return choices
@@ -939,17 +986,6 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 	if !ok {
 		return fmt.Errorf("selected repo not found")
 	}
-	provider, err := providerByName(selectedRepo.Provider)
-	if err != nil {
-		return err
-	}
-	prs, err := provider.FetchPRs(ctx, selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo)
-	if err != nil {
-		return err
-	}
-	if len(prs) == 0 {
-		return fmt.Errorf("no pull requests found")
-	}
 
 	theme := ui.DefaultTheme()
 	useColor := isatty.IsTerminal(os.Stdout.Fd())
@@ -975,11 +1011,6 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 		return err
 	}
 
-	prByNumber := make(map[int]prSummary, len(prs))
-	for _, pr := range prs {
-		prByNumber[pr.Number] = pr
-	}
-
 	type reviewWorkspaceResult struct {
 		workspaceID string
 		description string
@@ -990,25 +1021,19 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 	var failureID string
 
 	for _, value := range selectedPRs {
-		num, err := strconv.Atoi(strings.TrimSpace(value))
+		pr, err := decodeReviewSelection(value)
 		if err != nil {
-			failure = fmt.Errorf("invalid PR number: %s", value)
+			failure = err
 			failureID = value
-			break
-		}
-		pr, ok := prByNumber[num]
-		if !ok {
-			failure = fmt.Errorf("PR not found: %d", num)
-			failureID = fmt.Sprintf("PR-%d", num)
 			break
 		}
 		if !strings.EqualFold(strings.TrimSpace(pr.HeadRepo), strings.TrimSpace(pr.BaseRepo)) {
 			failure = fmt.Errorf("fork PRs are not supported: %s", pr.HeadRepo)
-			failureID = fmt.Sprintf("PR-%d", num)
+			failureID = fmt.Sprintf("PR-%d", pr.Number)
 			break
 		}
 		description := pr.Title
-		workspaceID := formatReviewWorkspaceID(selectedRepo.Owner, selectedRepo.Repo, num)
+		workspaceID := formatReviewWorkspaceID(selectedRepo.Owner, selectedRepo.Repo, pr.Number)
 		output.Step(formatStep("create workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 		wsDir, err := workspace.New(ctx, rootDir, workspaceID)
 		if err != nil {
@@ -1032,10 +1057,18 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 			failureID = workspaceID
 			break
 		}
-		if err := fetchPRHead(ctx, store.StorePath, pr.HeadRef); err != nil {
+		trackingExists, err := remoteTrackingExists(ctx, store.StorePath, pr.HeadRef)
+		if err != nil {
 			failure = err
 			failureID = workspaceID
 			break
+		}
+		if !trackingExists {
+			if err := fetchPRHead(ctx, store.StorePath, pr.HeadRef); err != nil {
+				failure = err
+				failureID = workspaceID
+				break
+			}
 		}
 
 		headRef := fmt.Sprintf("refs/remotes/origin/%s", pr.HeadRef)
@@ -1270,6 +1303,21 @@ func remoteBranchExists(ctx context.Context, storePath, branch string) (bool, er
 	return strings.TrimSpace(res.Stdout) != "", nil
 }
 
+func remoteTrackingExists(ctx context.Context, storePath, branch string) (bool, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return false, fmt.Errorf("store path is required")
+	}
+	if strings.TrimSpace(branch) == "" {
+		return false, fmt.Errorf("branch is required")
+	}
+	remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+	_, exists, err := gitcmd.ShowRef(ctx, storePath, remoteRef)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func fetchRemoteBranch(ctx context.Context, storePath, branch string) error {
 	if strings.TrimSpace(storePath) == "" {
 		return fmt.Errorf("store path is required")
@@ -1308,6 +1356,30 @@ func addIssueWorktree(ctx context.Context, rootDir, workspaceID, repoURL, branch
 	return workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, false)
 }
 
+func addIssueWorktreeWithRemoteInfo(ctx context.Context, rootDir, workspaceID, repoURL, branch, baseRef, storePath string, remoteExists bool) (workspace.Repo, error) {
+	if strings.TrimSpace(storePath) == "" {
+		return workspace.Repo{}, fmt.Errorf("store path is required")
+	}
+	localExists, err := localBranchExists(ctx, storePath, branch)
+	if err != nil {
+		return workspace.Repo{}, err
+	}
+	if !localExists && remoteExists {
+		remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
+		trackingExists, err := remoteTrackingExists(ctx, storePath, branch)
+		if err != nil {
+			return workspace.Repo{}, err
+		}
+		if !trackingExists {
+			if err := fetchRemoteBranch(ctx, storePath, branch); err != nil {
+				return workspace.Repo{}, err
+			}
+		}
+		return workspace.AddWithTrackingBranch(ctx, rootDir, workspaceID, repoURL, "", branch, remoteRef, false)
+	}
+	return workspace.AddWithBranch(ctx, rootDir, workspaceID, repoURL, "", branch, baseRef, false)
+}
+
 func formatPRList(values []string) string {
 	if len(values) == 0 {
 		return ""
@@ -1321,6 +1393,49 @@ func formatPRList(values []string) string {
 		out = append(out, fmt.Sprintf("#%s", val))
 	}
 	return strings.Join(out, ", ")
+}
+
+func encodeReviewSelection(pr prSummary) string {
+	escape := url.QueryEscape
+	return strings.Join([]string{
+		strconv.Itoa(pr.Number),
+		escape(pr.HeadRef),
+		escape(pr.HeadRepo),
+		escape(pr.BaseRepo),
+		escape(pr.Title),
+	}, "|")
+}
+
+func decodeReviewSelection(value string) (prSummary, error) {
+	parts := strings.Split(value, "|")
+	if len(parts) == 1 {
+		num, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			return prSummary{}, fmt.Errorf("invalid PR selection: %s", value)
+		}
+		return prSummary{}, fmt.Errorf("missing PR metadata for #%d; re-run selection", num)
+	}
+	if len(parts) != 5 {
+		return prSummary{}, fmt.Errorf("invalid PR selection: %s", value)
+	}
+	num, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return prSummary{}, fmt.Errorf("invalid PR number: %s", parts[0])
+	}
+	unescape := func(v string) string {
+		out, err := url.QueryUnescape(v)
+		if err != nil {
+			return v
+		}
+		return out
+	}
+	return prSummary{
+		Number:   num,
+		HeadRef:  strings.TrimSpace(unescape(parts[1])),
+		HeadRepo: strings.TrimSpace(unescape(parts[2])),
+		BaseRepo: strings.TrimSpace(unescape(parts[3])),
+		Title:    strings.TrimSpace(unescape(parts[4])),
+	}, nil
 }
 
 func runReview(ctx context.Context, rootDir string, args []string, noPrompt bool) error {
