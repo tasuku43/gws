@@ -5,6 +5,10 @@ A git workspace tool and worktree manager for human + agentic development.
 gwst moves local development from "clone-directory centric" to "workspace centric"
 so humans and multiple AI agents can work in parallel without stepping on each other.
 
+## Demo
+
+https://github.com/user-attachments/assets/889e7f64-6222-4ad2-bc42-620dd1dd4139
+
 ## Why gwst
 
 - In the era of AI agents, multiple actors edit in parallel and context collisions become common.
