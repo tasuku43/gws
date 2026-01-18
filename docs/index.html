@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>gwst — Git worktree workspace tool for AI agents</title>
+    <meta
+      name="description"
+      content="gwst is a git workspace tool and worktree manager for AI agents and parallel development. Create task workspaces from issues, reviews, or templates."
+    />
+    <style>
+      :root {
+        --bg: #f4f1ea;
+        --ink: #1c1c1a;
+        --muted: #5d5a55;
+        --accent: #d14a2a;
+        --accent-2: #1b8a6b;
+        --card: #ffffff;
+        --shadow: 0 12px 40px rgba(20, 17, 12, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "DM Serif Text", "Georgia", "Times New Roman", serif;
+        color: var(--ink);
+        background: radial-gradient(1200px 600px at 20% -10%, #ffe9d6, transparent 60%),
+          radial-gradient(900px 600px at 100% 0%, #d7f3ef, transparent 50%),
+          var(--bg);
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 48px 20px 96px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 32px;
+        align-items: center;
+      }
+
+      .kicker {
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        font-size: 14px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      h1 {
+        font-size: clamp(36px, 6vw, 60px);
+        margin: 8px 0 12px;
+        line-height: 1.05;
+      }
+
+      .tagline {
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        font-size: 18px;
+        line-height: 1.5;
+        color: var(--muted);
+        max-width: 520px;
+      }
+
+      .cta-row {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 18px;
+        border-radius: 999px;
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        font-size: 14px;
+        text-decoration: none;
+        border: 1px solid var(--ink);
+        color: var(--ink);
+        background: var(--card);
+        transition: transform 200ms ease, box-shadow 200ms ease;
+      }
+
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+      }
+
+      .demo {
+        background: var(--card);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .demo::after {
+        content: "Demo GIF coming soon";
+        position: absolute;
+        top: 16px;
+        right: -40px;
+        transform: rotate(12deg);
+        background: #f9e2d7;
+        color: var(--ink);
+        padding: 8px 16px;
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+
+      .demo pre {
+        margin: 0;
+        font-family: "SF Mono", "Menlo", "Consolas", monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #241f1a;
+        background: #f7f4f0;
+        padding: 16px;
+        border-radius: 12px;
+        overflow-x: auto;
+      }
+
+      section {
+        margin-top: 64px;
+      }
+
+      h2 {
+        font-size: 28px;
+        margin: 0 0 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--card);
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .card p {
+        margin: 0;
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .steps {
+        display: grid;
+        gap: 12px;
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        color: var(--muted);
+      }
+
+      code {
+        font-family: "SF Mono", "Menlo", "Consolas", monospace;
+        background: #f2e8df;
+        padding: 2px 6px;
+        border-radius: 6px;
+        color: #7b2a12;
+      }
+
+      footer {
+        margin-top: 64px;
+        font-family: "Space Grotesk", "Verdana", sans-serif;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        header,
+        .card,
+        .demo {
+          animation: float-in 600ms ease forwards;
+          opacity: 0;
+          transform: translateY(12px);
+        }
+
+        header {
+          animation-delay: 100ms;
+        }
+
+        .demo {
+          animation-delay: 200ms;
+        }
+
+        .card:nth-child(1) {
+          animation-delay: 200ms;
+        }
+
+        .card:nth-child(2) {
+          animation-delay: 260ms;
+        }
+
+        .card:nth-child(3) {
+          animation-delay: 320ms;
+        }
+
+        .card:nth-child(4) {
+          animation-delay: 380ms;
+        }
+      }
+
+      @keyframes float-in {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Text&family=Space+Grotesk:wght@400;500&display=swap"
+    />
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div>
+          <div class="kicker">gwst</div>
+          <h1>Git worktrees, organized as workspaces.</h1>
+          <p class="tagline">
+            A git workspace tool and worktree manager for AI agents and parallel development.
+            Create task workspaces from issues, reviews, or templates without stepping on each other.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="https://github.com/tasuku43/gwst">View on GitHub</a>
+            <a class="btn" href="https://github.com/tasuku43/gwst#quickstart-5-minutes"
+              >Quickstart</a
+            >
+          </div>
+        </div>
+        <div class="demo">
+          <pre>
+$ gwst init
+$ gwst repo get git@github.com:org/repo.git
+$ gwst create --issue
+$ gwst open
+$ gwst rm
+          </pre>
+        </div>
+      </header>
+
+      <section>
+        <h2>Why teams adopt gwst</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Issue-driven work</h3>
+            <p>
+              Pick multiple GitHub issues in one pass and spin up dedicated workspaces per task.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Review bursts</h3>
+            <p>
+              When reviews pile up, create review workspaces in bulk and run AI agents safely.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Multi-repo changes</h3>
+            <p>Templates bundle repositories into a single task workspace (pseudo-monorepo).</p>
+          </div>
+          <div class="card">
+            <h3>Safe cleanup</h3>
+            <p>Guardrails prevent accidental deletion when worktrees are dirty or unpushed.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Install</h2>
+        <div class="steps">
+          <div>1) <code>brew tap tasuku43/gwst</code></div>
+          <div>2) <code>brew install gwst</code></div>
+          <div>3) Or use releases: download and put <code>gwst</code> on your PATH</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Quickstart</h2>
+        <div class="steps">
+          <div>1) <code>gwst init</code></div>
+          <div>2) <code>gwst repo get &lt;repo&gt;</code></div>
+          <div>3) <code>gwst create --repo &lt;repo&gt;</code></div>
+          <div>4) <code>gwst open</code> / <code>gwst rm</code></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>FAQ</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Do I need gh?</h3>
+            <p>Only for <code>--issue</code> and <code>--review</code> modes (GitHub).</p>
+          </div>
+          <div class="card">
+            <h3>What does gwst delete?</h3>
+            <p>It removes worktrees and directories, and warns on dirty or unpushed work.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Built for fast context switching. Explore docs on
+        <a href="https://github.com/tasuku43/gwst">GitHub</a>.
+      </footer>
+    </div>
+  </body>
+</html>
