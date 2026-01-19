@@ -494,7 +494,11 @@ func runCreateTemplateWithInputs(ctx context.Context, rootDir string, inputs cre
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description:  description,
+		Mode:         workspace.MetadataModeTemplate,
+		TemplateName: templateName,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -611,7 +615,10 @@ func runCreateRepoWithInputs(ctx context.Context, rootDir string, inputs createR
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description: description,
+		Mode:        workspace.MetadataModeRepo,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}

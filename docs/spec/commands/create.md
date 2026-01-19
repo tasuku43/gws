@@ -38,7 +38,7 @@ Same behavior as the former `gwst new`.
 - Resolves `--template` and `WORKSPACE_ID`; if either is missing and `--no-prompt` is not set, interactively prompts for both. With `--no-prompt`, missing values cause an error.
 - Validates `WORKSPACE_ID` using `git check-ref-format --branch` and fails on invalid IDs.
 - Loads the specified template from `templates.yaml`; errors if the template is missing.
-- When prompting is allowed, asks for an optional description (`description`). Empty input is allowed; non-empty values are saved to `manifest.yaml`.
+- When prompting is allowed, asks for an optional description (`description`). Empty input is allowed; non-empty values are saved to `manifest.yaml` and `.gwst/metadata.json`.
 - Preflights template repositories to see which stores are absent.
   - If repos are missing and prompting is allowed, offers to run `gwst repo get` for them before proceeding.
   - With `--no-prompt`, missing repos cause an error.
@@ -96,7 +96,7 @@ Same behavior as the former `gwst review`.
 - If `PR URL` is provided:
   - Accepts GitHub PR URLs only (e.g., `https://github.com/owner/repo/pull/123`); rejects other hosts or malformed paths.
   - Uses `gh api` to fetch PR metadata (requires authenticated GitHub CLI): PR number, head ref, and repositories.
-  - Saves the PR title as the workspace description.
+  - Saves the PR title as the workspace description in both `manifest.yaml` and `.gwst/metadata.json`.
   - Rejects forked PRs (head repo must match base repo).
   - Selects the repo URL based on `defaultRepoProtocol` (SSH preferred, HTTPS fallback).
   - Workspace ID is `<OWNER>-<REPO>-REVIEW-PR-<number>` (owner/repo uppercased); errors if it already exists.
@@ -105,6 +105,7 @@ Same behavior as the former `gwst review`.
   - Adds a worktree under `<root>/workspaces/<OWNER>-<REPO>-REVIEW-PR-<number>/<alias>` where:
     - Creates a local branch `<head_ref>` tracking `origin/<head_ref>`.
     - `manifest.yaml` stores the branch name as `<head_ref>`.
+    - `.gwst/metadata.json` stores `mode=review` and the PR URL as `source_url`.
 - Once the repo is determined, start prefetch immediately and wait for completion before creating the worktree.
 - If `PR URL` is omitted and prompts are allowed (interactive picker):
   - `--no-prompt` with no URL => error.
@@ -116,6 +117,7 @@ Same behavior as the former `gwst review`.
     - Creates a local branch matching the PR head ref, tracking `origin/<head_ref>`.
     - `manifest.yaml` stores the branch name as the PR head ref.
     - Workspace description = PR title.
+    - `.gwst/metadata.json` stores `mode=review` and the PR URL as `source_url`.
     - Fork PRs remain rejected.
   - Flags other than `--no-prompt` are not allowed in picker mode (error if provided).
   - Creation is sequential; an error on one PR stops further creation and reports successes/failures so far.
@@ -142,7 +144,8 @@ Same behavior as the former `gwst issue`.
   - Parse the URL to obtain `owner`, `repo`, and `issue number`.
   - Workspace ID: defaults to `<OWNER>-<REPO>-ISSUE-<number>` (owner/repo uppercased); can be overridden with `--workspace-id`. Must pass `git check-ref-format --branch`. If the workspace already exists, error.
   - Branch: defaults to `issue/<number>`. Before proceeding, prompt the user with the default and allow editing unless `--no-prompt` or `--branch` is supplied.
-  - Uses `gh api` to fetch the issue title and saves it as the workspace description (requires authenticated GitHub CLI).
+  - Uses `gh api` to fetch the issue title and saves it as the workspace description in both `manifest.yaml` and `.gwst/metadata.json` (requires authenticated GitHub CLI).
+  - `.gwst/metadata.json` stores `mode=issue` and the issue URL as `source_url`.
     - If the branch exists in the bare store, use it.
     - If the branch exists on `origin` but not locally, fetch it and create a tracking branch.
     - If not, create it from a base ref.

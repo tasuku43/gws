@@ -135,7 +135,11 @@ func runCreateIssue(ctx context.Context, rootDir, issueURL, workspaceID, branch,
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description: description,
+		Mode:        workspace.MetadataModeIssue,
+		SourceURL:   issueURL,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -312,7 +316,11 @@ func runIssue(ctx context.Context, rootDir string, args []string, noPrompt bool)
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description: description,
+		Mode:        workspace.MetadataModeIssue,
+		SourceURL:   raw,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -524,7 +532,12 @@ func runCreateIssueSelected(ctx context.Context, rootDir string, noPrompt bool, 
 			failureID = workspaceID
 			break
 		}
-		if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+		sourceURL := buildIssueURLFromParts(selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo, num)
+		if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+			Description: description,
+			Mode:        workspace.MetadataModeIssue,
+			SourceURL:   sourceURL,
+		}); err != nil {
 			if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 				failure = fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 			} else {
@@ -885,7 +898,11 @@ func runCreateReview(ctx context.Context, rootDir, prURL string, noPrompt bool, 
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description: description,
+		Mode:        workspace.MetadataModeReview,
+		SourceURL:   prURL,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -1041,7 +1058,12 @@ func runCreateReviewSelected(ctx context.Context, rootDir string, noPrompt bool,
 			failureID = workspaceID
 			break
 		}
-		if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+		sourceURL := buildPRURLFromParts(selectedRepo.Host, selectedRepo.Owner, selectedRepo.Repo, pr.Number)
+		if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+			Description: description,
+			Mode:        workspace.MetadataModeReview,
+			SourceURL:   sourceURL,
+		}); err != nil {
 			if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 				failure = fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 			} else {
@@ -1494,7 +1516,11 @@ func runReview(ctx context.Context, rootDir string, args []string, noPrompt bool
 	if err != nil {
 		return err
 	}
-	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{Description: description}); err != nil {
+	if err := workspace.SaveMetadata(wsDir, workspace.Metadata{
+		Description: description,
+		Mode:        workspace.MetadataModeReview,
+		SourceURL:   raw,
+	}); err != nil {
 		if rollbackErr := workspace.Remove(ctx, rootDir, workspaceID); rollbackErr != nil {
 			return fmt.Errorf("save workspace metadata failed: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -1652,6 +1678,16 @@ func buildRepoURLFromParts(host, owner, repo string) string {
 	default:
 		return fmt.Sprintf("git@%s:%s/%s.git", host, owner, repoName)
 	}
+}
+
+func buildIssueURLFromParts(host, owner, repo string, number int) string {
+	repoName := strings.TrimSuffix(repo, ".git")
+	return fmt.Sprintf("https://%s/%s/%s/issues/%d", host, owner, repoName, number)
+}
+
+func buildPRURLFromParts(host, owner, repo string, number int) string {
+	repoName := strings.TrimSuffix(repo, ".git")
+	return fmt.Sprintf("https://%s/%s/%s/pull/%d", host, owner, repoName, number)
 }
 
 func fetchPRRef(ctx context.Context, storePath string, req prRequest, workspaceID string) (string, error) {
