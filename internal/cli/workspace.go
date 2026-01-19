@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mattn/go-isatty"
+	"github.com/tasuku43/gwst/internal/app/rm"
 	"github.com/tasuku43/gwst/internal/domain/repo"
 	"github.com/tasuku43/gwst/internal/domain/workspace"
 	"github.com/tasuku43/gwst/internal/infra/gitcmd"
@@ -235,10 +236,7 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 		renderer.Section("Steps")
 		output.Step(formatStep("remove workspace", workspaceID, relPath(rootDir, workspace.WorkspaceDir(rootDir, workspaceID))))
 
-		if err := workspace.RemoveWithOptions(ctx, rootDir, workspaceID, workspace.RemoveOptions{
-			AllowStatusError: true,
-			AllowDirty:       state.Kind == workspace.WorkspaceStateDirty,
-		}); err != nil {
+		if err := rm.Remove(ctx, rootDir, workspaceID, state.Kind == workspace.WorkspaceStateDirty); err != nil {
 			return err
 		}
 		if err := rebuildManifest(ctx, rootDir); err != nil {
@@ -284,10 +282,7 @@ func runWorkspaceRemove(ctx context.Context, rootDir string, args []string) erro
 	for i, selectedID := range selected {
 		output.Step(formatStepWithIndex("remove workspace", selectedID, relPath(rootDir, workspace.WorkspaceDir(rootDir, selectedID)), i+1, len(selected)))
 		state := states[selectedID]
-		if err := workspace.RemoveWithOptions(ctx, rootDir, selectedID, workspace.RemoveOptions{
-			AllowStatusError: true,
-			AllowDirty:       state.Kind == workspace.WorkspaceStateDirty,
-		}); err != nil {
+		if err := rm.Remove(ctx, rootDir, selectedID, state.Kind == workspace.WorkspaceStateDirty); err != nil {
 			return err
 		}
 	}
