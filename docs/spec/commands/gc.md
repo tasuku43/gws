@@ -1,9 +1,6 @@
 ---
 title: "gwst gc"
-status: planned
-pending:
-  - rules-implementation
-  - confirmation-ux
+status: implemented
 ---
 
 ## Synopsis
