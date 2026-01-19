@@ -38,7 +38,7 @@ Same behavior as the former `gwst new`.
 - Resolves `--template` and `WORKSPACE_ID`; if either is missing and `--no-prompt` is not set, interactively prompts for both. With `--no-prompt`, missing values cause an error.
 - Validates `WORKSPACE_ID` using `git check-ref-format --branch` and fails on invalid IDs.
 - Loads the specified template from `templates.yaml`; errors if the template is missing.
-- When prompting is allowed, asks for an optional description (`description`). Empty input is allowed; non-empty values are saved as workspace metadata.
+- When prompting is allowed, asks for an optional description (`description`). Empty input is allowed; non-empty values are saved to `manifest.yaml`.
 - Preflights template repositories to see which stores are absent.
   - If repos are missing and prompting is allowed, offers to run `gwst repo get` for them before proceeding.
   - With `--no-prompt`, missing repos cause an error.
@@ -104,7 +104,7 @@ Same behavior as the former `gwst review`.
   - Fetches the PR head ref into the bare store: `git fetch origin <head_ref>`.
   - Adds a worktree under `<root>/workspaces/<OWNER>-<REPO>-REVIEW-PR-<number>/<alias>` where:
     - Creates a local branch `<head_ref>` tracking `origin/<head_ref>`.
-    - Workspace metadata stores branch name as `<head_ref>`.
+    - `manifest.yaml` stores the branch name as `<head_ref>`.
 - Once the repo is determined, start prefetch immediately and wait for completion before creating the worktree.
 - If `PR URL` is omitted and prompts are allowed (interactive picker):
   - `--no-prompt` with no URL => error.
@@ -114,7 +114,7 @@ Same behavior as the former `gwst review`.
   - For each selected PR:
     - Workspace ID = `<OWNER>-<REPO>-REVIEW-PR-<number>` (owner/repo uppercased).
     - Creates a local branch matching the PR head ref, tracking `origin/<head_ref>`.
-    - Workspace metadata stores branch name as the PR head ref.
+    - `manifest.yaml` stores the branch name as the PR head ref.
     - Workspace description = PR title.
     - Fork PRs remain rejected.
   - Flags other than `--no-prompt` are not allowed in picker mode (error if provided).
