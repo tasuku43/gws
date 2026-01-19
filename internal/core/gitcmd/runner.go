@@ -90,7 +90,6 @@ var allowedSubcommands = map[string]struct{}{
 	"check-ref-format": {},
 	"clone":            {},
 	"config":           {},
-	"for-each-ref":     {},
 	"fetch":            {},
 	"init":             {},
 	"ls-remote":        {},

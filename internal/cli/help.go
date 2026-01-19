@@ -31,7 +31,6 @@ func printGlobalHelp(w io.Writer) {
 	fmt.Fprintln(w, helpCommand(theme, useColor, "ls [--details]", "list workspaces (with repos/status details)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "status [<WORKSPACE_ID>]", "check dirty/untracked status"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "rm [<WORKSPACE_ID>]", "remove workspace (confirms on warnings)"))
-	fmt.Fprintln(w, helpCommand(theme, useColor, "gc", "remove safe workspaces (bulk)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "path --workspace", "print selected workspace path"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "repo <subcommand>", "repo commands (get/ls)"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "template <subcommand>", "template commands (ls/add/rm/validate)"))
@@ -59,8 +58,6 @@ func printCommandHelp(cmd string, w io.Writer) bool {
 		printStatusHelp(w)
 	case "rm":
 		printRmHelp(w)
-	case "gc":
-		printGcHelp(w)
 	case "open":
 		printOpenHelp(w)
 	case "path":
@@ -110,10 +107,6 @@ func printStatusHelp(w io.Writer) {
 
 func printRmHelp(w io.Writer) {
 	fmt.Fprintln(w, "Usage: gwst rm [<WORKSPACE_ID>]")
-}
-
-func printGcHelp(w io.Writer) {
-	fmt.Fprintln(w, "Usage: gwst gc")
 }
 
 func printOpenHelp(w io.Writer) {

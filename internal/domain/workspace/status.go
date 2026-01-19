@@ -18,8 +18,6 @@ type StatusResult struct {
 
 type RepoStatus struct {
 	Alias          string
-	RepoSpec       string
-	RepoKey        string
 	Branch         string
 	Upstream       string
 	Head           string
@@ -67,8 +65,6 @@ func Status(ctx context.Context, rootDir, workspaceID string) (StatusResult, err
 	for _, repo := range repos {
 		repoStatus := RepoStatus{
 			Alias:        repo.Alias,
-			RepoSpec:     repo.RepoSpec,
-			RepoKey:      repo.RepoKey,
 			Branch:       repo.Branch,
 			WorktreePath: repo.WorktreePath,
 		}
