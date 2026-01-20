@@ -244,11 +244,7 @@ func renderPlanChanges(ctx context.Context, rootDir string, renderer *ui.Rendere
 			renderWorkspaceRiskDetails(renderer, status)
 		case manifestplan.WorkspaceUpdate:
 			renderer.BulletAccent(fmt.Sprintf("~ update workspace %s", change.WorkspaceID))
-			renderPlanRepoChanges(renderer, change.Repos)
-			if workspaceChangeHasDestructiveRepoChange(change) {
-				status, _ := loadWorkspaceStatusForRemoval(ctx, rootDir, change.WorkspaceID)
-				renderWorkspaceRiskDetails(renderer, status)
-			}
+			renderPlanWorkspaceUpdateRepos(renderer, change)
 		}
 	}
 }
@@ -281,6 +277,96 @@ func renderPlanWorkspaceAddRepos(renderer *ui.Renderer, changes []manifestplan.R
 		if strings.TrimSpace(change.ToRepo) != "" {
 			renderer.TreeLine(renderer.MutedText(detailPrefix), renderer.MutedText("repo: "+strings.TrimSpace(change.ToRepo)))
 		}
+	}
+}
+
+func renderPlanWorkspaceUpdateRepos(renderer *ui.Renderer, change manifestplan.WorkspaceChange) {
+	if renderer == nil || len(change.Repos) == 0 {
+		return
+	}
+
+	for i, repoChange := range change.Repos {
+		prefix := "├─ "
+		if i == len(change.Repos)-1 {
+			prefix = "└─ "
+		}
+		detailPrefix := detailTreePrefix(i == len(change.Repos)-1)
+
+		name := strings.TrimSpace(repoChange.Alias)
+		if name == "" {
+			name = strings.TrimSpace(repoChange.ToRepo)
+		}
+		branch := strings.TrimSpace(repoChange.FromBranch)
+		if branch == "" {
+			branch = strings.TrimSpace(repoChange.ToBranch)
+		}
+		renderer.TreeLineBranchMuted(prefix, name, branch)
+
+		if summary := formatRepoChangeSummary(repoChange); strings.TrimSpace(summary) != "" {
+			style := repoChangeSummaryStyle(renderer, repoChange.Kind)
+			renderer.TreeLine(renderer.MutedText(detailPrefix), renderer.MutedText("change: ")+style(summary))
+		}
+
+		switch repoChange.Kind {
+		case manifestplan.RepoAdd:
+			if strings.TrimSpace(repoChange.ToRepo) != "" {
+				renderer.TreeLine(renderer.MutedText(detailPrefix), renderer.MutedText("repo: "+strings.TrimSpace(repoChange.ToRepo)))
+			}
+		case manifestplan.RepoRemove, manifestplan.RepoUpdate:
+			// For updates, show only what's changing (no risk/sync/files).
+		}
+	}
+}
+
+func repoChangeSummaryStyle(renderer *ui.Renderer, kind manifestplan.RepoChangeKind) func(string) string {
+	if renderer == nil {
+		return func(s string) string { return s }
+	}
+	switch kind {
+	case manifestplan.RepoAdd:
+		return renderer.SuccessText
+	case manifestplan.RepoRemove:
+		return renderer.ErrorText
+	case manifestplan.RepoUpdate:
+		return renderer.AccentText
+	default:
+		return func(s string) string { return s }
+	}
+}
+
+func formatRepoChangeSummary(change manifestplan.RepoChange) string {
+	switch change.Kind {
+	case manifestplan.RepoAdd:
+		if strings.TrimSpace(change.ToRepo) != "" && strings.TrimSpace(change.ToBranch) != "" {
+			return fmt.Sprintf("add repo %s branch %s", strings.TrimSpace(change.ToRepo), strings.TrimSpace(change.ToBranch))
+		}
+		if strings.TrimSpace(change.ToRepo) != "" {
+			return fmt.Sprintf("add repo %s", strings.TrimSpace(change.ToRepo))
+		}
+		return "add repo"
+	case manifestplan.RepoRemove:
+		if strings.TrimSpace(change.FromRepo) != "" && strings.TrimSpace(change.FromBranch) != "" {
+			return fmt.Sprintf("remove repo %s branch %s", strings.TrimSpace(change.FromRepo), strings.TrimSpace(change.FromBranch))
+		}
+		if strings.TrimSpace(change.FromRepo) != "" {
+			return fmt.Sprintf("remove repo %s", strings.TrimSpace(change.FromRepo))
+		}
+		return "remove repo"
+	case manifestplan.RepoUpdate:
+		fromRepo := strings.TrimSpace(change.FromRepo)
+		toRepo := strings.TrimSpace(change.ToRepo)
+		fromBranch := strings.TrimSpace(change.FromBranch)
+		toBranch := strings.TrimSpace(change.ToBranch)
+		switch {
+		case fromRepo == toRepo && fromBranch != toBranch:
+			return fmt.Sprintf("branch %s -> %s", fromBranch, toBranch)
+		case fromRepo != toRepo && fromBranch == toBranch:
+			return fmt.Sprintf("repo %s -> %s", fromRepo, toRepo)
+		default:
+			return fmt.Sprintf("repo %s (%s) -> %s (%s)", fromRepo, fromBranch, toRepo, toBranch)
+		}
+	default:
+		return ""
 	}
 }
 
