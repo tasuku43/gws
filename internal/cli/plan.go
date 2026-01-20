@@ -37,7 +37,7 @@ func runPlan(ctx context.Context, rootDir string, args []string) error {
 		renderer.Blank()
 	}
 
-	renderer.Section("Result")
+	renderer.Section("Plan")
 	if len(result.Changes) == 0 {
 		renderer.Bullet("no changes")
 		return nil

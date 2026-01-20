@@ -41,7 +41,7 @@ func runApply(ctx context.Context, rootDir string, args []string, noPrompt bool)
 		renderer.Blank()
 	}
 
-	renderer.Section("Diff")
+	renderer.Section("Plan")
 	if len(plan.Changes) == 0 {
 		renderer.Bullet("no changes")
 		return nil
