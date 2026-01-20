@@ -210,6 +210,26 @@ func (r *Renderer) style(text string, style lipgloss.Style) string {
 	return style.Render(text)
 }
 
+func (r *Renderer) MutedText(text string) string {
+	return r.style(text, r.theme.Muted)
+}
+
+func (r *Renderer) AccentText(text string) string {
+	return r.style(text, r.theme.Accent)
+}
+
+func (r *Renderer) SuccessText(text string) string {
+	return r.style(text, r.theme.Success)
+}
+
+func (r *Renderer) WarnText(text string) string {
+	return r.style(text, r.theme.Warn)
+}
+
+func (r *Renderer) ErrorText(text string) string {
+	return r.style(text, r.theme.Error)
+}
+
 func (r *Renderer) bullet(text string) {
 	prefix := output.StepPrefix + " "
 	if r.useColor {

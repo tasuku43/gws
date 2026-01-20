@@ -42,6 +42,6 @@ func runPlan(ctx context.Context, rootDir string, args []string) error {
 		renderer.Bullet("no changes")
 		return nil
 	}
-	renderPlanChanges(renderer, result.Changes)
+	renderPlanChanges(ctx, rootDir, renderer, result)
 	return nil
 }
