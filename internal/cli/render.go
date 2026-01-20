@@ -328,7 +328,8 @@ func repoChangeSummaryStyle(renderer *ui.Renderer, kind manifestplan.RepoChangeK
 	case manifestplan.RepoRemove:
 		return renderer.ErrorText
 	case manifestplan.RepoUpdate:
-		return renderer.AccentText
+		// Keep updates readable without competing with other semantic uses of Accent (e.g. risk: clean).
+		return func(s string) string { return s }
 	default:
 		return func(s string) string { return s }
 	}
@@ -525,7 +526,8 @@ func repoRiskSummary(repo workspace.RepoStatus) (string, string, treeLineStyle) 
 	if repo.AheadCount > 0 {
 		return "unpushed", fmt.Sprintf("(ahead=%d)", repo.AheadCount), treeLineWarn
 	}
-	return "clean", "", treeLineSuccess
+	// Clean repos are not risks; keep the output focused by omitting the line.
+	return "", "", treeLineNormal
 }
 
 func firstNonZeroCountKV(items []struct {
