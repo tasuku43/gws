@@ -226,8 +226,13 @@ func renderPlanChanges(ctx context.Context, rootDir string, renderer *ui.Rendere
 	for _, change := range plan.Changes {
 		switch change.Kind {
 		case manifestplan.WorkspaceAdd:
-			renderer.BulletSuccess(fmt.Sprintf("+ add workspace %s", change.WorkspaceID))
-			renderPlanRepoChanges(renderer, change.Repos)
+			desc := strings.TrimSpace(planWorkspaceDescription(plan, change.WorkspaceID))
+			line := fmt.Sprintf("+ add workspace %s", change.WorkspaceID)
+			if desc != "" {
+				line += " - " + desc
+			}
+			renderer.BulletSuccess(line)
+			renderPlanWorkspaceAddRepos(renderer, change.Repos)
 		case manifestplan.WorkspaceRemove:
 			status, _ := loadWorkspaceStatusForRemoval(ctx, rootDir, change.WorkspaceID)
 			desc := strings.TrimSpace(planWorkspaceDescription(plan, change.WorkspaceID))
@@ -244,6 +249,37 @@ func renderPlanChanges(ctx context.Context, rootDir string, renderer *ui.Rendere
 				status, _ := loadWorkspaceStatusForRemoval(ctx, rootDir, change.WorkspaceID)
 				renderWorkspaceRiskDetails(renderer, status)
 			}
+		}
+	}
+}
+
+func renderPlanWorkspaceAddRepos(renderer *ui.Renderer, changes []manifestplan.RepoChange) {
+	if renderer == nil || len(changes) == 0 {
+		return
+	}
+	var adds []manifestplan.RepoChange
+	for _, change := range changes {
+		if change.Kind != manifestplan.RepoAdd {
+			continue
+		}
+		adds = append(adds, change)
+	}
+	if len(adds) == 0 {
+		return
+	}
+	for i, change := range adds {
+		prefix := "├─ "
+		if i == len(adds)-1 {
+			prefix = "└─ "
+		}
+		name := strings.TrimSpace(change.Alias)
+		if name == "" {
+			name = strings.TrimSpace(change.ToRepo)
+		}
+		renderer.TreeLineBranchMuted(prefix, name, change.ToBranch)
+		renderer.TreeLine(renderer.MutedText("  | "), renderer.MutedText("sync: pending (workspace not created)"))
+		if strings.TrimSpace(change.ToRepo) != "" {
+			renderer.TreeLine(renderer.MutedText("  | "), renderer.MutedText("repo: "+strings.TrimSpace(change.ToRepo)))
 		}
 	}
 }
