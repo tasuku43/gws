@@ -19,6 +19,15 @@ This backlog tracks the work to shift gwst from "direct filesystem commands" to 
 - Destructive actions require explicit confirmation; `--no-prompt` must not allow destructive changes.
 - Idempotent apply: repeated runs converge with no changes.
 
+## Next TODOs (working set)
+- [ ] Finalize `gwst manifest add` mode details (no-prompt requirements, multi-select UX, error messages, output IA).
+- [ ] Decide `--base` scope for multi-repo (preset): apply to all repos vs per-repo base selection.
+- [ ] Confirm base tracking model: workspace-level `.gwst/metadata.json base_branch` vs per-repo base tracking.
+- [ ] Specify and implement `gwst manifest rm` UX and how risk context is shown (in rm vs rely on apply plan).
+- [ ] Specify and implement `gwst manifest ls` drift badges (applied/missing/drift/extra) and sorting.
+- [ ] Implement CLI routing + aliases (`manifest`/`man`/`m`, `manifest preset`/`pre`/`p`) and remove `gwst ls` (hard error with suggestion).
+- [ ] Implement preset commands under `gwst manifest preset` and decide removal of legacy `gwst preset *`.
+
 ## Command migration map (high level)
 
 Inventory (desired state):
