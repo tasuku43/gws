@@ -127,8 +127,9 @@ func runApplyInternal(ctx context.Context, rootDir string, renderer *ui.Renderer
 	// Start background fetch while the user reviews the plan.
 	// This preserves the "gwst create" UX win (fetch overlaps with reading time),
 	// while keeping `gwst plan` itself side-effect free.
+	toPrefetch := repoSpecsForApplyPlan(plan)
 	prefetch := prefetcher.New(defaultPrefetchTimeout)
-	if _, err := prefetch.StartAll(ctx, rootDir, repoSpecsForApplyPlan(plan)); err != nil {
+	if _, err := prefetch.StartAll(ctx, rootDir, toPrefetch); err != nil {
 		return applyInternalResult{HadChanges: true}, err
 	}
 
@@ -158,6 +159,11 @@ func runApplyInternal(ctx context.Context, rootDir string, renderer *ui.Renderer
 
 	renderer.Blank()
 	renderer.Section("Apply")
+	if err := prefetch.WaitAll(ctx, toPrefetch); err != nil {
+		// ここでのfetch失敗はネットワーク要因が多く、apply自体は継続できることもあるため、
+		// 警告を出しつつ続行する。
+		renderer.BulletWarn(fmt.Sprintf("prefetch failed (continuing): %v", err))
+	}
 	if err := apply.Apply(ctx, rootDir, plan, apply.Options{
 		AllowDirty:       destructive,
 		AllowStatusError: destructive,

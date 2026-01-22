@@ -142,7 +142,7 @@ func TestWorkspaceAddSkipsFetchWhenUpToDate(t *testing.T) {
 	}
 }
 
-func TestWorkspaceAddRespectsFetchGrace(t *testing.T) {
+func TestWorkspaceAddFetchesEvenWithinGraceWhenFetchTrue(t *testing.T) {
 	t.Setenv("GIT_AUTHOR_NAME", "gwst")
 	t.Setenv("GIT_AUTHOR_EMAIL", "gwst@example.com")
 	t.Setenv("GIT_COMMITTER_NAME", "gwst")
@@ -197,6 +197,7 @@ func TestWorkspaceAddRespectsFetchGrace(t *testing.T) {
 	runGit(t, seedDir, "add", ".")
 	runGit(t, seedDir, "commit", "-m", "second")
 	runGit(t, seedDir, "push", "origin", "main")
+	secondHash := revParse(t, seedDir, "HEAD")
 
 	if _, err := workspace.New(ctx, rootDir, "WS-1"); err != nil {
 		t.Fatalf("workspace new: %v", err)
@@ -207,8 +208,8 @@ func TestWorkspaceAddRespectsFetchGrace(t *testing.T) {
 
 	worktreePath := workspace.WorktreePath(rootDir, "WS-1", "repo")
 	head := revParse(t, worktreePath, "HEAD")
-	if head != initialHash {
-		t.Fatalf("expected worktree HEAD to remain at initial hash due to fetch grace; got %s, want %s", head, initialHash)
+	if head != secondHash {
+		t.Fatalf("expected worktree HEAD to reflect remote even within fetch grace; got %s, want %s (initial=%s)", head, secondHash, initialHash)
 	}
 }
 

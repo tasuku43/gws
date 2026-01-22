@@ -15,7 +15,6 @@ import (
 	"github.com/tasuku43/gwst/internal/domain/repo"
 	"github.com/tasuku43/gwst/internal/domain/workspace"
 	"github.com/tasuku43/gwst/internal/infra/gitcmd"
-	"github.com/tasuku43/gwst/internal/infra/prefetcher"
 )
 
 type Options struct {
@@ -26,10 +25,6 @@ type Options struct {
 }
 
 func Apply(ctx context.Context, rootDir string, plan manifestplan.Result, opts Options) error {
-	prefetch := prefetcher.New(opts.PrefetchTimeout)
-	toPrefetch := collectRepoSpecs(plan)
-	_, _ = prefetch.StartAll(ctx, rootDir, toPrefetch)
-
 	for _, change := range plan.Changes {
 		if change.Kind != manifestplan.WorkspaceRemove {
 			continue
@@ -50,10 +45,6 @@ func Apply(ctx context.Context, rootDir string, plan manifestplan.Result, opts O
 		if err := applyRepoBranchRenames(ctx, rootDir, change, opts.Step); err != nil {
 			return err
 		}
-	}
-
-	if err := prefetch.WaitAll(ctx, toPrefetch); err != nil {
-		return err
 	}
 
 	for _, change := range plan.Changes {
@@ -130,15 +121,19 @@ func applyReviewRepoAdd(ctx context.Context, rootDir, workspaceID string, repoEn
 	if branch == "" {
 		return fmt.Errorf("branch is required")
 	}
-	gitcmd.Logf("git fetch origin %s", branch)
-	if _, err := gitcmd.Run(ctx, []string{"fetch", "origin", branch}, gitcmd.Options{Dir: store.StorePath}); err != nil {
-		return err
-	}
 	remoteRef := fmt.Sprintf("refs/remotes/origin/%s", branch)
 	if _, ok, err := gitcmd.ShowRef(ctx, store.StorePath, remoteRef); err != nil {
 		return err
 	} else if !ok {
-		return fmt.Errorf("ref not found: %s", remoteRef)
+		gitcmd.Logf("git fetch origin %s", branch)
+		if _, err := gitcmd.Run(ctx, []string{"fetch", "origin", branch}, gitcmd.Options{Dir: store.StorePath}); err != nil {
+			return err
+		}
+		if _, ok, err := gitcmd.ShowRef(ctx, store.StorePath, remoteRef); err != nil {
+			return err
+		} else if !ok {
+			return fmt.Errorf("ref not found: %s", remoteRef)
+		}
 	}
 
 	_, err = workspace.AddWithTrackingBranch(ctx, rootDir, workspaceID, repoSpec, repoEntry.Alias, branch, remoteRef, false)
@@ -240,36 +235,6 @@ func canRenameRepoBranchInPlace(change manifestplan.RepoChange) bool {
 		return false
 	}
 	return true
-}
-
-func collectRepoSpecs(plan manifestplan.Result) []string {
-	unique := map[string]struct{}{}
-	for _, change := range plan.Changes {
-		switch change.Kind {
-		case manifestplan.WorkspaceAdd:
-			ws, ok := plan.Desired.Workspaces[change.WorkspaceID]
-			if !ok {
-				continue
-			}
-			for _, repoEntry := range ws.Repos {
-				spec := repo.SpecFromKey(repoEntry.RepoKey)
-				unique[spec] = struct{}{}
-			}
-		case manifestplan.WorkspaceUpdate:
-			for _, repoChange := range change.Repos {
-				switch repoChange.Kind {
-				case manifestplan.RepoAdd, manifestplan.RepoUpdate:
-					spec := repo.SpecFromKey(repoChange.ToRepo)
-					unique[spec] = struct{}{}
-				}
-			}
-		}
-	}
-	var specs []string
-	for spec := range unique {
-		specs = append(specs, spec)
-	}
-	return specs
 }
 
 func logStep(step func(text string), text string) {
