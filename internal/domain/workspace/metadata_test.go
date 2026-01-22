@@ -66,3 +66,17 @@ func TestListIncludesDescription(t *testing.T) {
 		t.Fatalf("WS-2 description = %q, want %q", ws2Desc, "desc only")
 	}
 }
+
+func TestSaveMetadataBaseBranchValidation(t *testing.T) {
+	wsDir := t.TempDir()
+
+	if err := SaveMetadata(wsDir, Metadata{BaseBranch: "origin/main"}); err != nil {
+		t.Fatalf("save metadata (origin/main): %v", err)
+	}
+	if err := SaveMetadata(wsDir, Metadata{BaseBranch: "main"}); err == nil {
+		t.Fatalf("expected error for base_branch without origin/ prefix")
+	}
+	if err := SaveMetadata(wsDir, Metadata{BaseBranch: "origin/"}); err == nil {
+		t.Fatalf("expected error for base_branch origin/ with empty branch")
+	}
+}

@@ -85,6 +85,7 @@ func Build(ctx context.Context, rootDir string) (manifest.File, []error, error) 
 				Alias:   strings.TrimSpace(repoEntry.Alias),
 				RepoKey: strings.TrimSpace(repoEntry.RepoKey),
 				Branch:  strings.TrimSpace(repoEntry.Branch),
+				BaseRef: strings.TrimSpace(meta.BaseBranch),
 			})
 		}
 		sort.Slice(repoEntries, func(i, j int) bool {

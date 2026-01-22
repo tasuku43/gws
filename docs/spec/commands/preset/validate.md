@@ -1,6 +1,8 @@
 ---
 title: "gwst preset validate"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest preset validate"
+migrated_from: "docs/spec/commands/preset-validate.md"
 ---
 
 ## Synopsis

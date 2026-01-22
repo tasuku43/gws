@@ -2,21 +2,53 @@ package add
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/tasuku43/gwst/internal/domain/repo"
 	"github.com/tasuku43/gwst/internal/domain/workspace"
+	"github.com/tasuku43/gwst/internal/infra/gitcmd"
 )
 
-func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch string) (workspace.Repo, error) {
+func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, baseRef string) (workspace.Repo, bool, string, error) {
 	repoSpec := repo.SpecFromKey(repoKey)
 	_, exists, err := repo.Exists(rootDir, repoSpec)
 	if err != nil {
-		return workspace.Repo{}, err
+		return workspace.Repo{}, false, "", err
 	}
 	if !exists {
 		if _, err := repo.Get(ctx, rootDir, repoSpec); err != nil {
-			return workspace.Repo{}, err
+			return workspace.Repo{}, false, "", err
 		}
 	}
-	return workspace.AddWithBranch(ctx, rootDir, workspaceID, repoSpec, alias, branch, "", true)
+
+	store, err := repo.Open(ctx, rootDir, repoSpec, false)
+	if err != nil {
+		return workspace.Repo{}, false, "", err
+	}
+
+	_, branchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/heads/%s", branch))
+	if err != nil {
+		return workspace.Repo{}, false, "", err
+	}
+
+	baseRef = strings.TrimSpace(baseRef)
+	if baseRef == "" {
+		baseRef, err = workspace.ResolveBaseRef(ctx, store.StorePath)
+		if err != nil {
+			return workspace.Repo{}, false, "", err
+		}
+	}
+
+	added, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoSpec, alias, branch, baseRef, true)
+	if err != nil {
+		return workspace.Repo{}, false, "", err
+	}
+
+	createdNewBranch := !branchExists
+	baseBranchForMetadata := ""
+	if createdNewBranch && strings.HasPrefix(baseRef, "origin/") {
+		baseBranchForMetadata = baseRef
+	}
+	return added, createdNewBranch, baseBranchForMetadata, nil
 }

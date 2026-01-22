@@ -1,6 +1,7 @@
 ---
 title: "gwst repo ls"
 status: implemented
+migrated_from: "docs/spec/commands/repo-ls.md"
 ---
 
 ## Synopsis

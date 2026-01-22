@@ -26,6 +26,7 @@ gwst init
 Notes:
 - `gwst.yaml` is a gwst-managed file. Commands rewrite the full file; comments and ordering may not be preserved.
 - When rewriting, gwst preserves existing metadata for untouched workspaces where possible, and may read `.gwst/metadata.json` to refill fields like `mode`, `description`, `preset_name`, and `source_url` during imports.
+- When importing, gwst may also read `.gwst/metadata.json` `base_branch` and store it as `base_ref` in `gwst.yaml` (per repo entry) to preserve how branches were originally cut.
 - Repo branch names are derived from each worktree's Git state when importing from the filesystem.
 
 ## Format
@@ -46,6 +47,9 @@ Repo entry fields:
 - `alias` (required): directory name under the workspace.
 - `repo_key` (required): repo store key, e.g. `github.com/org/repo.git`.
 - `branch` (required): branch checked out in the worktree.
+- `base_ref` (optional): base ref used when creating the branch for the first time (only relevant if the branch does not already exist in the store).
+  - When present, it must be in the form `origin/<branch>`.
+  - If omitted, gwst uses the repo's detected default branch (prefers `refs/remotes/origin/HEAD`).
 
 ```yaml
 version: 1
@@ -62,17 +66,20 @@ workspaces:
       - alias: api
         repo_key: github.com/org/api.git
         branch: issue/123
+        base_ref: origin/main
       - alias: web
         repo_key: github.com/org/web.git
         branch: PROJ-123
 ```
 
 ## Validation rules
-- Workspace IDs must be valid git branch names (`git check-ref-format --branch`).
+- Workspace IDs must be valid workspace IDs (safe directory names). They do not have to be valid git branch names.
 - `mode` must be one of the supported values.
 - `repo_key` must match the bare store key format (`<host>/<owner>/<repo>.git`).
 - `alias` must be unique within a workspace.
 - `branch` must be a valid git branch name.
+- `base_ref` is optional. When provided, it must resolve in the repo store when it is needed to create a new branch (otherwise apply fails).
+  - Additionally, `base_ref` must be in the form `origin/<branch>`.
 
 ## Diff semantics (for apply)
 

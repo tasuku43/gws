@@ -63,7 +63,7 @@ func Apply(ctx context.Context, rootDir string, plan manifestplan.Result, opts O
 				return err
 			}
 		case manifestplan.WorkspaceUpdate:
-			if err := applyRepoAdds(ctx, rootDir, change, opts.Step); err != nil {
+			if err := applyRepoAdds(ctx, rootDir, plan.Desired, change, opts.Step); err != nil {
 				return err
 			}
 		}
@@ -87,11 +87,19 @@ func applyWorkspaceAdd(ctx context.Context, rootDir string, desired manifest.Fil
 	if err != nil {
 		return err
 	}
+	baseBranchToRecord := ""
 	for _, repoEntry := range ws.Repos {
 		logStep(step, fmt.Sprintf("worktree add %s", repoEntry.Alias))
-		if _, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoEntry.RepoKey, repoEntry.Alias, repoEntry.Branch); err != nil {
+		_, createdBranch, baseBranch, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoEntry.RepoKey, repoEntry.Alias, repoEntry.Branch, repoEntry.BaseRef)
+		if err != nil {
 			return err
 		}
+		if createdBranch && baseBranchToRecord == "" && strings.TrimSpace(baseBranch) != "" {
+			baseBranchToRecord = baseBranch
+		}
+	}
+	if err := recordBaseBranchIfMissing(rootDir, change.WorkspaceID, baseBranchToRecord); err != nil {
+		return err
 	}
 	return nil
 }
@@ -138,23 +146,37 @@ func applyRepoBranchRenames(ctx context.Context, rootDir string, change manifest
 	return nil
 }
 
-func applyRepoAdds(ctx context.Context, rootDir string, change manifestplan.WorkspaceChange, step func(text string)) error {
+func applyRepoAdds(ctx context.Context, rootDir string, desired manifest.File, change manifestplan.WorkspaceChange, step func(text string)) error {
+	baseBranchToRecord := ""
 	for _, repoChange := range change.Repos {
 		switch repoChange.Kind {
 		case manifestplan.RepoAdd:
 			logStep(step, fmt.Sprintf("worktree add %s", repoChange.Alias))
-			if _, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoChange.ToRepo, repoChange.Alias, repoChange.ToBranch); err != nil {
+			baseRef := desiredBaseRef(desired, change.WorkspaceID, repoChange.Alias)
+			_, createdBranch, baseBranch, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoChange.ToRepo, repoChange.Alias, repoChange.ToBranch, baseRef)
+			if err != nil {
 				return err
+			}
+			if createdBranch && baseBranchToRecord == "" && strings.TrimSpace(baseBranch) != "" {
+				baseBranchToRecord = baseBranch
 			}
 		case manifestplan.RepoUpdate:
 			if canRenameRepoBranchInPlace(repoChange) {
 				continue
 			}
 			logStep(step, fmt.Sprintf("worktree add %s", repoChange.Alias))
-			if _, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoChange.ToRepo, repoChange.Alias, repoChange.ToBranch); err != nil {
+			baseRef := desiredBaseRef(desired, change.WorkspaceID, repoChange.Alias)
+			_, createdBranch, baseBranch, err := add.AddRepo(ctx, rootDir, change.WorkspaceID, repoChange.ToRepo, repoChange.Alias, repoChange.ToBranch, baseRef)
+			if err != nil {
 				return err
 			}
+			if createdBranch && baseBranchToRecord == "" && strings.TrimSpace(baseBranch) != "" {
+				baseBranchToRecord = baseBranch
+			}
 		}
+	}
+	if err := recordBaseBranchIfMissing(rootDir, change.WorkspaceID, baseBranchToRecord); err != nil {
+		return err
 	}
 	return nil
 }
@@ -214,4 +236,34 @@ func logStep(step func(text string), text string) {
 		return
 	}
 	step(text)
+}
+
+func desiredBaseRef(desired manifest.File, workspaceID, alias string) string {
+	ws, ok := desired.Workspaces[workspaceID]
+	if !ok {
+		return ""
+	}
+	for _, repoEntry := range ws.Repos {
+		if strings.TrimSpace(repoEntry.Alias) == strings.TrimSpace(alias) {
+			return strings.TrimSpace(repoEntry.BaseRef)
+		}
+	}
+	return ""
+}
+
+func recordBaseBranchIfMissing(rootDir, workspaceID, baseBranch string) error {
+	baseBranch = strings.TrimSpace(baseBranch)
+	if baseBranch == "" {
+		return nil
+	}
+	wsDir := workspace.WorkspaceDir(rootDir, workspaceID)
+	meta, err := workspace.LoadMetadata(wsDir)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(meta.BaseBranch) != "" {
+		return nil
+	}
+	meta.BaseBranch = baseBranch
+	return workspace.SaveMetadata(wsDir, meta)
 }

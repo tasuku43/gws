@@ -1,6 +1,7 @@
 ---
 title: "gwst repo get"
 status: implemented
+migrated_from: "docs/spec/commands/repo-get.md"
 ---
 
 ## Synopsis
