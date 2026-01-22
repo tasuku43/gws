@@ -174,9 +174,31 @@ func buildManifestRmWorkspaceChoices(ctx context.Context, rootDir string, desire
 		ws := desired.Workspaces[id]
 		kind := bestEffortWorkspaceRiskKind(ctx, rootDir, id)
 		warn, strong := manifestRmRiskWarning(kind)
+		var repoChoices []ui.PromptChoice
+		for _, repoEntry := range ws.Repos {
+			repoName := strings.TrimSpace(repoEntry.Alias)
+			if repoName == "" {
+				repoName = displayRepoKey(repoEntry.RepoKey)
+			}
+			label := repoName
+			branch := strings.TrimSpace(repoEntry.Branch)
+			if branch != "" {
+				label = fmt.Sprintf("%s (branch: %s)", repoName, branch)
+			}
+			var details []string
+			repoKey := strings.TrimSpace(repoEntry.RepoKey)
+			if repoKey != "" {
+				details = append(details, fmt.Sprintf("repo: %s", displayRepoKey(repoKey)))
+			}
+			repoChoices = append(repoChoices, ui.PromptChoice{
+				Label:   label,
+				Details: details,
+			})
+		}
 		choices = append(choices, ui.WorkspaceChoice{
 			ID:            id,
 			Description:   strings.TrimSpace(ws.Description),
+			Repos:         repoChoices,
 			Warning:       warn,
 			WarningStrong: strong,
 		})

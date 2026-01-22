@@ -3054,14 +3054,15 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 	for i := start; i < end; i++ {
 		item := items[i]
 		displayID := item.ID
-		hasWarn := strings.TrimSpace(item.Warning) != ""
+		warnValue := shortWarningTag(item.Warning)
+		hasWarn := strings.TrimSpace(warnValue) != "" && strings.TrimSpace(strings.ToLower(warnValue)) != "clean"
 		warnStyle := theme.SoftWarn
 		if item.WarningStrong {
 			warnStyle = theme.Warn
 		}
 		warnTag := ""
 		if hasWarn {
-			warnTag = "[" + shortWarningTag(item.Warning) + "]"
+			warnTag = "[" + warnValue + "]"
 		}
 		if useColor {
 			if hasWarn {
@@ -3109,6 +3110,25 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 			}
 			b.WriteString(line)
 			b.WriteString("\n")
+			if len(repo.Details) == 0 {
+				continue
+			}
+			detailPrefix := output.Indent + output.Indent + output.Indent
+			treePrefix := "│  "
+			if j == len(item.Repos)-1 {
+				treePrefix = "   "
+			}
+			for _, detail := range repo.Details {
+				if strings.TrimSpace(detail) == "" {
+					continue
+				}
+				detailLine := fmt.Sprintf("%s%s %s", detailPrefix, treePrefix, detail)
+				if useColor {
+					detailLine = theme.Muted.Render(detailLine)
+				}
+				b.WriteString(detailLine)
+				b.WriteString("\n")
+			}
 		}
 	}
 }
@@ -3124,14 +3144,15 @@ func renderWorkspaceChoiceConfirmList(b *strings.Builder, items []WorkspaceChoic
 	}
 	for _, item := range items {
 		displayID := item.ID
-		hasWarn := strings.TrimSpace(item.Warning) != ""
+		warnValue := shortWarningTag(item.Warning)
+		hasWarn := strings.TrimSpace(warnValue) != "" && strings.TrimSpace(strings.ToLower(warnValue)) != "clean"
 		warnStyle := theme.SoftWarn
 		if item.WarningStrong {
 			warnStyle = theme.Warn
 		}
 		warnTag := ""
 		if hasWarn {
-			warnTag = "[" + shortWarningTag(item.Warning) + "]"
+			warnTag = "[" + warnValue + "]"
 		}
 		if useColor && hasWarn {
 			displayID = warnStyle.Render(displayID)
@@ -3171,12 +3192,16 @@ func renderWorkspaceChoiceConfirmList(b *strings.Builder, items []WorkspaceChoic
 			if len(repo.Details) == 0 {
 				continue
 			}
-			detailPrefix := output.Indent + output.Indent + output.Indent + output.Indent
+			detailPrefix := output.Indent + output.Indent + output.Indent
+			treePrefix := "│  "
+			if j == len(item.Repos)-1 {
+				treePrefix = "   "
+			}
 			for _, detail := range repo.Details {
 				if strings.TrimSpace(detail) == "" {
 					continue
 				}
-				detailLine := fmt.Sprintf("%s| %s", detailPrefix, detail)
+				detailLine := fmt.Sprintf("%s%s %s", detailPrefix, treePrefix, detail)
 				if useColor {
 					detailLine = theme.Muted.Render(detailLine)
 				}
