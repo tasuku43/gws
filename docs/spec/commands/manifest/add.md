@@ -47,6 +47,23 @@ For URL-based modes, workspace IDs are derived mechanically:
 - When `--no-prompt` is set, all required inputs must be provided via flags/args; missing values are errors (no interactive fallback).
 - `--workspace-id` is not supported; use the positional `[<WORKSPACE_ID>]` instead (error if provided).
 
+### Rollback on cancelled apply (prompt decline / Ctrl-C)
+When `gwst manifest add` runs apply (default behavior), it performs a two-phase action:
+1) rewrite `gwst.yaml`, then
+2) run `gwst apply` (which includes the confirmation prompt).
+
+If the user cancels at the apply confirmation step (e.g. answers `n`/No) or interrupts at the prompt (`Ctrl-C`), `gwst manifest add` should roll back the manifest change by restoring the previous `gwst.yaml` content.
+
+Guidance:
+- Prefer restoring from an in-memory/temporary snapshot of the pre-change `gwst.yaml` (or a backup file) rather than running `gwst import`.
+- Do not use `gwst import` as a rollback mechanism:
+  - It can drop desired-state-only entries that are not present on the filesystem.
+  - It may lose or change metadata fields not fully reconstructible from the filesystem.
+  - It can rewrite the file in ways unrelated to the user's cancelled change.
+
+Notes:
+- If apply proceeds past confirmation and starts executing steps, failures are treated as apply failures (the manifest remains updated; users can re-run `gwst apply`).
+
 ## Detailed flow (conceptual)
 1. Determine mode (flag or interactive picker).
 2. Collect inputs (repo/preset selection, URLs, workspace id, description, branches, base).
@@ -63,6 +80,7 @@ For URL-based modes, workspace IDs are derived mechanically:
 7. Otherwise run `gwst apply` for the entire root:
    - This may include unrelated drift in the same root.
    - Confirmation and destructive rules are handled by `gwst apply`.
+8. If apply is cancelled at the confirmation step, restore the previous `gwst.yaml`.
 
 ## Base ref (`--base`) and default branch behavior
 - By default, new branches are created from the repo's default branch (detected from `refs/remotes/origin/HEAD` when available).
