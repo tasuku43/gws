@@ -6,27 +6,31 @@
 - Goal: Manage workspaces (task-based directories) backed by bare repo stores + git worktrees.
 
 ## IaC-first direction (Plan / Apply / Import)
-- これからのgwstは **IaC的な「宣言 → 差分 → 反映」** を中心に設計を寄せていく。
-- `gwst.yaml` がワークスペースの **desired state（在庫台帳 / inventory）**:
+- gwst is moving toward an IaC-style workflow centered on **Declare → Diff → Reconcile**.
+- `gwst.yaml` is the workspace **desired state (inventory)**:
   - Location: `<GWST_ROOT>/gwst.yaml`
-  - Normal commands（create/add/rm...）: filesystemが真実で、成功後に`gwst.yaml`を更新して追従
-  - `gwst apply`: `gwst.yaml`が真実で、差分を計算してfilesystemへ反映
-  - `gwst import`: filesystem（+ `.gwst/metadata.json`）が真実で、`gwst.yaml`を再構築
-- コマンドの役割:
-  - `gwst plan`: **read-only**（副作用なし）。`gwst.yaml` vs filesystem の diff を表示して終わる
-  - `gwst apply`: **reconcile**。出力は `Plan`→(confirm y/n)→`Apply`→`Result`
-    - confirm promptは `Plan` セクション末尾で表示（プロンプト前に空行）
-    - `Apply` は Steps + 部分的な git コマンドログ（ツリー表示）
-    - `Result` は完了サマリ（applied counts / manifest rewrite等）
-  - `gwst import`: **rebuild inventory**。現状のfilesystemから`gwst.yaml`を復元/正規化する導線
-- 非交渉の原則:
-  - idempotent（同じapplyを繰り返しても変化しない）
-  - destructive changesは明示的確認が必要（`--no-prompt`で破壊的変更は不可）
-  - drift検知（plan）と復元（apply/import）を第一級に扱う
+  - Normal commands (`create`/`add`/`rm`/...): the filesystem is the source of truth; after a successful change, gwst rewrites `gwst.yaml` to follow.
+  - `gwst apply`: `gwst.yaml` is the source of truth; gwst computes a diff and reconciles the filesystem.
+  - `gwst import`: the filesystem (+ `.gwst/metadata.json`) is the source of truth; gwst rebuilds `gwst.yaml`.
+- Command roles:
+  - `gwst plan`: **read-only** (no side effects). Shows the diff between `gwst.yaml` and the filesystem.
+  - `gwst apply`: **reconcile**. Output is `Plan` → (confirm y/n) → `Apply` → `Result`
+    - The confirmation prompt is shown at the end of the `Plan` section (with a blank line before the prompt).
+    - `Apply` prints steps plus partial git command logs (tree-style).
+    - `Result` prints a completion summary (applied counts / manifest rewrite, etc.).
+  - `gwst import`: **rebuild inventory**. Reconstructs/normalizes `gwst.yaml` from the current filesystem.
+- Non-negotiables:
+  - Idempotent (running `apply` repeatedly converges to no changes)
+  - Destructive changes require explicit confirmation (`--no-prompt` must not allow destructive changes)
+  - Treat drift detection (`plan`) and restoration (`apply`/`import`) as first-class
 - Specs (source of truth):
   - `docs/spec/core/GWST.md`
   - `docs/spec/commands/plan.md`, `docs/spec/commands/apply.md`, `docs/spec/commands/import.md`
   - `docs/spec/ui/UI.md`
+
+## Plans / Backlogs
+- Design notes and backlogs live under `docs/plans/`.
+- Main IaC migration backlog: `docs/plans/2026-01-21-iac-migration-backlog.md`
 
 ## Non-negotiables (safety)
 - Do NOT run destructive commands (e.g., `rm -rf`, `sudo`, `chmod -R`, `dd`, disk operations).
@@ -42,11 +46,12 @@
 - If you change CLI behavior, update docs in `docs/` and task notes if needed.
 - For UI implementations, always refer to `docs/spec/ui/UI.md` as the authoritative spec.
 - When you know the related issue for a PR, include the issue link/number in the PR body(e.g. Fixes #<issue-number>).
-- Command specs live in `docs/spec/commands/` (one file per subcommand, YAML frontmatter with `status`):
+- Command specs live in `docs/spec/commands/` (YAML frontmatter with `status`):
     - `status: planned` means spec-first discussion; implement only after consensus and flip to `implemented`.
-    - New feature/CLI change flow: (1) draft/adjust spec in `docs/spec/commands/<cmd>.md`, (2) review/agree, (3) implement, (4) update spec status, (5) run gofmt/go test.
+    - Layout mirrors CLI: `docs/spec/commands/<cmd>.md` or `docs/spec/commands/<cmd>/<sub>.md` (+ optional `docs/spec/commands/<cmd>/README.md`)
+    - New feature/CLI change flow: (1) draft/adjust spec, (2) review/agree, (3) implement, (4) update spec status, (5) run gofmt/go test.
     - `docs/spec/README.md` indexes specs and describes metadata rules.
-    - Quick triage for agents: read only the frontmatter to know if work remains. If `pending` (array) is non-empty, there are unimplemented items even when `status: implemented`. Example to view metadata only: `rg --no-heading -n '^-{3}$' -C2 docs/spec/commands/<cmd>.md` or `sed -n '1,20p' docs/spec/commands/<cmd>.md`.
+    - Quick triage for agents: read only the frontmatter to know if work remains. If `pending` (array) is non-empty, there are unimplemented items even when `status: implemented`. Example: `sed -n '1,20p' docs/spec/commands/<cmd>.md` or `sed -n '1,20p' docs/spec/commands/<cmd>/<sub>.md`.
 
 ## Code conventions
 - Keep dependencies minimal; prefer Go standard library.
