@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -60,11 +61,14 @@ func (r *Renderer) Step(text string) {
 }
 
 func (r *Renderer) StepLog(text string) {
-	r.writeWithPrefix(output.Indent+output.Indent+output.LogConnector+" ", r.style(text, r.theme.Muted))
+	// Align nested logs with the Plan tree indentation.
+	r.writeWithPrefix(output.Indent+output.LogConnector+" ", r.style(text, r.theme.Muted))
 }
 
 func (r *Renderer) StepLogOutput(text string) {
-	r.writeWithPrefix(output.LogOutputPrefix(), r.style(text, r.theme.Muted))
+	spaces := utf8.RuneCountInString(output.LogConnector) + 1
+	prefix := output.Indent + strings.Repeat(" ", spaces)
+	r.writeWithPrefix(prefix, r.style(text, r.theme.Muted))
 }
 
 func (r *Renderer) Result(text string) {
@@ -112,6 +116,15 @@ func (r *Renderer) BulletError(text string) {
 	if r.useColor {
 		prefix = r.theme.Error.Render(prefix)
 		text = r.theme.Error.Render(text)
+	}
+	r.writeWithPrefix(output.Indent+prefix, text)
+}
+
+func (r *Renderer) BulletWarn(text string) {
+	prefix := output.StepPrefix + " "
+	if r.useColor {
+		prefix = r.theme.Warn.Render(prefix)
+		text = r.theme.Warn.Render(text)
 	}
 	r.writeWithPrefix(output.Indent+prefix, text)
 }

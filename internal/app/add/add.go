@@ -10,7 +10,7 @@ import (
 	"github.com/tasuku43/gwst/internal/infra/gitcmd"
 )
 
-func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, baseRef string) (workspace.Repo, bool, string, error) {
+func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, baseRef string, fetch bool) (workspace.Repo, bool, string, error) {
 	repoSpec := repo.SpecFromKey(repoKey)
 	_, exists, err := repo.Exists(rootDir, repoSpec)
 	if err != nil {
@@ -27,7 +27,11 @@ func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, 
 		return workspace.Repo{}, false, "", err
 	}
 
-	_, branchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/heads/%s", branch))
+	_, localBranchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/heads/%s", branch))
+	if err != nil {
+		return workspace.Repo{}, false, "", err
+	}
+	_, remoteBranchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/remotes/origin/%s", branch))
 	if err != nil {
 		return workspace.Repo{}, false, "", err
 	}
@@ -40,12 +44,12 @@ func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, 
 		}
 	}
 
-	added, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoSpec, alias, branch, baseRef, true)
+	added, err := workspace.AddWithBranch(ctx, rootDir, workspaceID, repoSpec, alias, branch, baseRef, fetch)
 	if err != nil {
 		return workspace.Repo{}, false, "", err
 	}
 
-	createdNewBranch := !branchExists
+	createdNewBranch := !(localBranchExists || remoteBranchExists)
 	baseBranchForMetadata := ""
 	if createdNewBranch && strings.HasPrefix(baseRef, "origin/") {
 		baseBranchForMetadata = baseRef

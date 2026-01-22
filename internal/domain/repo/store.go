@@ -133,12 +133,11 @@ func ensureDefaultBranch(ctx context.Context, storePath string, fetch bool, log 
 	}
 	defaultBranch, _ := localDefaultBranch(ctx, storePath)
 
-	var remoteHash string
 	remoteChecked := false
 	grace := fetchGraceDuration()
 	if !recentlyFetched(storePath, grace) || defaultBranch == "" {
 		var err error
-		defaultBranch, remoteHash, err = defaultBranchFromRemote(ctx, storePath)
+		defaultBranch, _, err = defaultBranchFromRemote(ctx, storePath)
 		if err != nil {
 			return "", err
 		}
@@ -148,28 +147,7 @@ func ensureDefaultBranch(ctx context.Context, storePath string, fetch bool, log 
 		_, _ = gitcmd.Run(ctx, []string{"symbolic-ref", "refs/remotes/origin/HEAD", fmt.Sprintf("refs/remotes/origin/%s", defaultBranch)}, gitcmd.Options{Dir: storePath})
 	}
 
-	localRemote, err := localRemoteHash(ctx, storePath, defaultBranch)
-	if err != nil {
-		return "", err
-	}
-	remoteTrackingMissing := localRemote == ""
-	localHash := localRemote
-	if localHash == "" {
-		localHash, err = localHeadHash(ctx, storePath, defaultBranch)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	needsFetch := remoteTrackingMissing
-	if remoteChecked && defaultBranch != "" && remoteHash != "" && localHash != "" && localHash != remoteHash {
-		needsFetch = true
-	}
-	if fetch && remoteChecked && (defaultBranch == "" || remoteHash == "") {
-		needsFetch = true
-	}
-
-	if needsFetch {
+	if fetch {
 		if log {
 			gitcmd.Logf("git fetch --prune")
 		}
