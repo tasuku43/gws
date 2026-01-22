@@ -120,9 +120,9 @@ Defaults and `--branch` rules:
   - `--branch` is not supported (error if provided).
 - `--issue`:
   - Branch defaults to `issue/<number>`.
-  - When prompts are allowed and `--branch` is not provided, the user is prompted with the default and can edit it.
-    - The input is pre-filled with the default branch and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
-  - `--branch <name>` overrides the default and skips the branch prompt.
+  - When prompts are allowed, the user is always prompted with the default and can edit it.
+    - The input is pre-filled with the default branch (or `--branch` when provided) and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
+  - `--branch <name>` is allowed but does not skip the branch prompt; it is used as the pre-filled default.
   - `--no-prompt` accepts the default when `--branch` is omitted.
 
 ## Multi-selection (review / issue picker)
