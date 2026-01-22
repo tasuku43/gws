@@ -3062,8 +3062,6 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 		warnTag := ""
 		if hasWarn {
 			warnTag = "[" + shortWarningTag(item.Warning) + "]"
-		} else {
-			warnTag = "[clean]"
 		}
 		if useColor {
 			if hasWarn {
@@ -3134,8 +3132,6 @@ func renderWorkspaceChoiceConfirmList(b *strings.Builder, items []WorkspaceChoic
 		warnTag := ""
 		if hasWarn {
 			warnTag = "[" + shortWarningTag(item.Warning) + "]"
-		} else {
-			warnTag = "[clean]"
 		}
 		if useColor && hasWarn {
 			displayID = warnStyle.Render(displayID)
