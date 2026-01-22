@@ -55,17 +55,22 @@ This command stores the target branch per repo as `repos[].branch` in `gwst.yaml
 Defaults and `--branch` rules:
 - `--preset`:
   - Default branch for each repo is `<WORKSPACE_ID>`.
-  - When prompts are allowed, the user can override branches per repo (input is pre-filled with `<WORKSPACE_ID>`).
+  - When prompts are allowed, the command always asks for branch per repo.
+    - The input is pre-filled with `<WORKSPACE_ID>` and the cursor is positioned so users can press Enter to accept, or type a suffix (e.g. `-hotfix`) without retyping.
   - With `--no-prompt`, uses the default for all repos (no per-repo override).
 - `--repo`:
   - Default branch is `<WORKSPACE_ID>`.
-  - `--branch` is not supported in MVP (error if provided); use interactive prompt when prompts are allowed.
+  - When prompts are allowed, the command asks for the repo branch.
+    - The input is pre-filled with `<WORKSPACE_ID>` and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
+  - `--branch` is not supported in MVP (error if provided).
 - `--review`:
   - Branch defaults to the PR head ref (tracking `origin/<head_ref>`).
   - `--branch` is not supported (error if provided).
 - `--issue`:
   - Branch defaults to `issue/<number>`.
-  - `--branch <name>` overrides the default.
+  - When prompts are allowed and `--branch` is not provided, the user is prompted with the default and can edit it.
+    - The input is pre-filled with the default branch and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
+  - `--branch <name>` overrides the default and skips the branch prompt.
   - `--no-prompt` accepts the default when `--branch` is omitted.
 
 ## Multi-selection (review / issue picker)
