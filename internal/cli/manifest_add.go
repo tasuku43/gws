@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mattn/go-isatty"
+	"github.com/tasuku43/gwst/internal/app/manifestplan"
 	"github.com/tasuku43/gwst/internal/domain/manifest"
 	"github.com/tasuku43/gwst/internal/domain/preset"
 	"github.com/tasuku43/gwst/internal/domain/repo"
@@ -97,7 +98,7 @@ func runManifestAdd(ctx context.Context, rootDir string, args []string, globalNo
 		return fmt.Errorf("read gwst.yaml: %w", err)
 	}
 
-	writeAndMaybeApply := func(updated manifest.File, showInputs func(*ui.Renderer)) error {
+	writeAndMaybeApply := func(updated manifest.File, showInputs func(*ui.Renderer), addedWorkspaceIDs []string) error {
 		if err := manifest.Save(rootDir, updated); err != nil {
 			return err
 		}
@@ -123,7 +124,9 @@ func runManifestAdd(ctx context.Context, rootDir string, args []string, globalNo
 		}
 		renderer.Section("Info")
 		renderer.Bullet("manifest: updated gwst.yaml")
-		renderer.Bullet("apply: reconciling entire root (plan may include unrelated drift)")
+		if planIncludesUnrelatedChanges(ctx, rootDir, addedWorkspaceIDs) {
+			renderer.BulletWarn("apply: plan includes unrelated changes")
+		}
 		renderer.Blank()
 
 		output.SetStepLogger(renderer)
@@ -390,7 +393,7 @@ func normalizeRepoSpec(raw string) (string, error) {
 	return trimmed, nil
 }
 
-func manifestAddPreset(ctx context.Context, rootDir, presetName, workspaceID, description string, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer)) error, _ []byte) error {
+func manifestAddPreset(ctx context.Context, rootDir, presetName, workspaceID, description string, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer), []string) error, _ []byte) error {
 	file, err := preset.Load(rootDir)
 	if err != nil {
 		return err
@@ -402,7 +405,7 @@ func manifestAddPreset(ctx context.Context, rootDir, presetName, workspaceID, de
 	return manifestAddPresetWithFile(ctx, rootDir, presetName, workspaceID, description, tmpl, branches, baseRef, apply, nil)
 }
 
-func manifestAddPresetWithFile(ctx context.Context, rootDir, presetName, workspaceID, description string, tmpl preset.Preset, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer)) error, showInputs func(*ui.Renderer)) error {
+func manifestAddPresetWithFile(ctx context.Context, rootDir, presetName, workspaceID, description string, tmpl preset.Preset, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer), []string) error, showInputs func(*ui.Renderer)) error {
 	desired, err := manifest.Load(rootDir)
 	if err != nil {
 		return err
@@ -445,10 +448,10 @@ func manifestAddPresetWithFile(ctx context.Context, rootDir, presetName, workspa
 		PresetName:  strings.TrimSpace(presetName),
 		Repos:       repos,
 	}
-	return apply(desired, showInputs)
+	return apply(desired, showInputs, []string{workspaceID})
 }
 
-func manifestAddRepo(ctx context.Context, rootDir, repoSpec, workspaceID, description string, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer)) error, _ []byte) error {
+func manifestAddRepo(ctx context.Context, rootDir, repoSpec, workspaceID, description string, branches []string, baseRef string, apply func(manifest.File, func(*ui.Renderer), []string) error, _ []byte) error {
 	repoSpecNorm, err := normalizeRepoSpec(repoSpec)
 	if err != nil {
 		return err
@@ -463,7 +466,7 @@ func manifestAddRepo(ctx context.Context, rootDir, repoSpec, workspaceID, descri
 	return manifestAddRepoWithSpec(ctx, rootDir, repoSpecNorm, workspaceID, description, branchValue, baseRef, apply, nil)
 }
 
-func manifestAddRepoWithSpec(ctx context.Context, rootDir, repoSpec, workspaceID, description, branch, baseRef string, apply func(manifest.File, func(*ui.Renderer)) error, showInputs func(*ui.Renderer)) error {
+func manifestAddRepoWithSpec(ctx context.Context, rootDir, repoSpec, workspaceID, description, branch, baseRef string, apply func(manifest.File, func(*ui.Renderer), []string) error, showInputs func(*ui.Renderer)) error {
 	desired, err := manifest.Load(rootDir)
 	if err != nil {
 		return err
@@ -498,10 +501,10 @@ func manifestAddRepoWithSpec(ctx context.Context, rootDir, repoSpec, workspaceID
 			},
 		},
 	}
-	return apply(desired, showInputs)
+	return apply(desired, showInputs, []string{workspaceID})
 }
 
-func manifestAddReviewURL(ctx context.Context, rootDir, prURL string, apply func(manifest.File, func(*ui.Renderer)) error) error {
+func manifestAddReviewURL(ctx context.Context, rootDir, prURL string, apply func(manifest.File, func(*ui.Renderer), []string) error) error {
 	prURL = strings.TrimSpace(prURL)
 	req, err := parsePRURL(prURL)
 	if err != nil {
@@ -580,10 +583,10 @@ func manifestAddReviewURL(ctx context.Context, rootDir, prURL string, apply func
 			},
 		},
 	}
-	return apply(desired, renderInputs)
+	return apply(desired, renderInputs, []string{workspaceID})
 }
 
-func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec string, selectedPRs []string, apply func(manifest.File, func(*ui.Renderer)) error, _ []byte) error {
+func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec string, selectedPRs []string, apply func(manifest.File, func(*ui.Renderer), []string) error, _ []byte) error {
 	repoSpec = strings.TrimSpace(repoSpec)
 	spec, _, err := repo.Normalize(repoSpec)
 	if err != nil {
@@ -600,6 +603,7 @@ func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec str
 	}
 	updated := desired
 	var warnings []string
+	var addedWorkspaceIDs []string
 	added := 0
 
 	for _, raw := range selectedPRs {
@@ -665,6 +669,7 @@ func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec str
 			},
 		}
 		added++
+		addedWorkspaceIDs = append(addedWorkspaceIDs, workspaceID)
 	}
 
 	if added == 0 {
@@ -683,10 +688,10 @@ func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec str
 	}
 
 	_ = spec
-	return apply(updated, showInputs)
+	return apply(updated, showInputs, addedWorkspaceIDs)
 }
 
-func manifestAddIssueURL(ctx context.Context, rootDir, issueURL, branch, baseRef string, noPrompt bool, apply func(manifest.File, func(*ui.Renderer)) error) error {
+func manifestAddIssueURL(ctx context.Context, rootDir, issueURL, branch, baseRef string, noPrompt bool, apply func(manifest.File, func(*ui.Renderer), []string) error) error {
 	issueURL = strings.TrimSpace(issueURL)
 	req, err := parseIssueURL(issueURL)
 	if err != nil {
@@ -760,10 +765,10 @@ func manifestAddIssueURL(ctx context.Context, rootDir, issueURL, branch, baseRef
 	}
 
 	_ = noPrompt
-	return apply(desired, renderInputs)
+	return apply(desired, renderInputs, []string{workspaceID})
 }
 
-func manifestAddIssueSelected(ctx context.Context, rootDir string, repoSpec string, selections []ui.IssueSelection, baseRef string, apply func(manifest.File, func(*ui.Renderer)) error, _ []byte) error {
+func manifestAddIssueSelected(ctx context.Context, rootDir string, repoSpec string, selections []ui.IssueSelection, baseRef string, apply func(manifest.File, func(*ui.Renderer), []string) error, _ []byte) error {
 	repoSpec = strings.TrimSpace(repoSpec)
 	spec, _, err := repo.Normalize(repoSpec)
 	if err != nil {
@@ -782,6 +787,7 @@ func manifestAddIssueSelected(ctx context.Context, rootDir string, repoSpec stri
 	}
 	updated := desired
 	var warnings []string
+	var addedWorkspaceIDs []string
 	added := 0
 
 	for _, sel := range selections {
@@ -826,6 +832,7 @@ func manifestAddIssueSelected(ctx context.Context, rootDir string, repoSpec stri
 			},
 		}
 		added++
+		addedWorkspaceIDs = append(addedWorkspaceIDs, workspaceID)
 	}
 
 	if added == 0 {
@@ -843,7 +850,37 @@ func manifestAddIssueSelected(ctx context.Context, rootDir string, repoSpec stri
 		r.Blank()
 	}
 
-	return apply(updated, showInputs)
+	return apply(updated, showInputs, addedWorkspaceIDs)
+}
+
+func planIncludesUnrelatedChanges(ctx context.Context, rootDir string, addedWorkspaceIDs []string) bool {
+	if len(addedWorkspaceIDs) == 0 {
+		return false
+	}
+	added := map[string]struct{}{}
+	for _, id := range addedWorkspaceIDs {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		added[id] = struct{}{}
+	}
+	if len(added) == 0 {
+		return false
+	}
+	plan, err := manifestplan.Plan(ctx, rootDir)
+	if err != nil {
+		return false
+	}
+	for _, change := range plan.Changes {
+		if strings.TrimSpace(change.WorkspaceID) == "" {
+			continue
+		}
+		if _, ok := added[change.WorkspaceID]; ok {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func ensureLocalBranchFromRemote(ctx context.Context, storePath, branch, remoteRef string) error {

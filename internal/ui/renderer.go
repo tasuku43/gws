@@ -116,6 +116,15 @@ func (r *Renderer) BulletError(text string) {
 	r.writeWithPrefix(output.Indent+prefix, text)
 }
 
+func (r *Renderer) BulletWarn(text string) {
+	prefix := output.StepPrefix + " "
+	if r.useColor {
+		prefix = r.theme.Warn.Render(prefix)
+		text = r.theme.Warn.Render(text)
+	}
+	r.writeWithPrefix(output.Indent+prefix, text)
+}
+
 func (r *Renderer) BulletSuccess(text string) {
 	prefix := output.StepPrefix + " "
 	if r.useColor {
