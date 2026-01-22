@@ -106,9 +106,9 @@ Defaults and `--branch` rules:
   - With `--no-prompt`, uses the default for all repos (no per-repo override).
 - `--repo`:
   - Default branch is `<WORKSPACE_ID>`.
-  - When prompts are allowed, the command asks for the repo branch.
-    - The input is pre-filled with `<WORKSPACE_ID>` and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
-  - `--branch <name>` overrides the default and skips the branch prompt.
+  - When prompts are allowed, the command always asks for the repo branch.
+    - The input is pre-filled with `<WORKSPACE_ID>` (or `--branch` when provided) and the cursor is positioned so users can press Enter to accept, or type a suffix without retyping.
+  - `--branch <name>` is allowed but does not skip the branch prompt; it is used as the pre-filled default.
   - With `--no-prompt`, `--branch` is optional; when omitted, the default is used.
 - `--review`:
   - Branch defaults to the PR head ref (tracking `origin/<head_ref>`).
