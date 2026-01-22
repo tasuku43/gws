@@ -51,6 +51,9 @@ func applyManifestMutation(ctx context.Context, rootDir string, updated manifest
 
 	plan, planErr := manifestplan.Plan(ctx, rootDir)
 	planOK := planErr == nil
+	if !planOK {
+		return planErr
+	}
 	if planOK && len(plan.Changes) == 0 {
 		if opts.Hooks.ShowPrelude != nil {
 			renderer.Blank()
@@ -69,13 +72,7 @@ func applyManifestMutation(ctx context.Context, rootDir string, updated manifest
 		renderer.Blank()
 	}
 
-	var res applyInternalResult
-	var err error
-	if planOK {
-		res, err = runApplyInternalWithPlan(ctx, rootDir, renderer, opts.NoPrompt, plan)
-	} else {
-		res, err = runApplyInternal(ctx, rootDir, renderer, opts.NoPrompt)
-	}
+	res, err := runApplyInternalWithPlan(ctx, rootDir, renderer, opts.NoPrompt, plan)
 	if err != nil {
 		return err
 	}

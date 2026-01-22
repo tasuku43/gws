@@ -98,14 +98,6 @@ type applyInternalResult struct {
 	Canceled   bool
 }
 
-func runApplyInternal(ctx context.Context, rootDir string, renderer *ui.Renderer, noPrompt bool) (applyInternalResult, error) {
-	plan, err := manifestplan.Plan(ctx, rootDir)
-	if err != nil {
-		return applyInternalResult{}, err
-	}
-	return runApplyInternalWithPlan(ctx, rootDir, renderer, noPrompt, plan)
-}
-
 func runApplyInternalWithPlan(ctx context.Context, rootDir string, renderer *ui.Renderer, noPrompt bool, plan manifestplan.Result) (applyInternalResult, error) {
 
 	theme := ui.DefaultTheme()
