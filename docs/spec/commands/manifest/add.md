@@ -88,9 +88,10 @@ Notes:
 - If `--base <ref>` is provided, it must be in the form `origin/<branch>`, and `gwst manifest add` writes it as `base_ref` into the corresponding repo entry in `gwst.yaml`.
   - `base_ref` is used only when the branch does not already exist in the bare store.
   - If `base_ref` does not resolve when it is needed, `gwst apply` fails (manifest remains updated).
- - Scope (preset / multi-repo):
+- Scope (preset / multi-repo):
    - In `--preset` interactive flows, the command asks for `base_ref` per repo (similar to per-repo branch prompts).
-     - Default is empty (meaning "use the repo's default branch").
+     - The input is pre-filled with the detected default base ref for that repo (typically `origin/<default>` derived from `refs/remotes/origin/HEAD`) so users can press Enter to accept.
+     - If detection fails, the default may be empty (meaning "use the repo's default branch").
      - If `--base <ref>` is provided, it is used as the pre-filled default for each repo's base prompt (users can press Enter or edit per repo).
    - With `--no-prompt`, per-repo base selection is not available; `--base <ref>` (when provided) is applied to all repos.
 
