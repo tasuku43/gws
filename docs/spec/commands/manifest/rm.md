@@ -29,6 +29,7 @@ Remove workspace entries from the inventory (`gwst.yaml`) using an interactive U
 1. Determine targets (args vs interactive selection).
 2. Validate targets:
    - Each selected ID must exist in `gwst.yaml` (inventory-driven removal).
+   - If any selected ID is missing from `gwst.yaml`, the command errors and makes no changes.
 3. Rewrite `gwst.yaml` (full-file rewrite) to remove the selected workspace entries.
 4. If `--no-apply` is set: stop after manifest rewrite.
 5. Otherwise run `gwst apply` for the entire root:
@@ -57,6 +58,6 @@ This command should preserve the spirit of the legacy `gwst rm` UX:
 
 ## Failure Modes
 - Workspace selection empty/canceled (interactive).
-- Any selected workspace ID is missing from `gwst.yaml`.
+- Any selected workspace ID is missing from `gwst.yaml` (no changes are made).
 - Manifest write failure.
 - `gwst apply` failure (git/filesystem).
