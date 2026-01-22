@@ -34,8 +34,6 @@ Policy:
 - [x] Specify `gwst manifest ls` drift badges (applied/missing/drift/extra), sorting, and output IA.
 - [x] Specify `gwst manifest preset` subcommands (ls/add/rm/validate).
 - [x] Align `gwst import` spec with current implementation.
-- [ ] Decide removal behavior for legacy `gwst preset *` (remove vs temporary alias vs hard error).
-- [ ] Decide removal behavior for `gwst ls` (exact error message guidance).
 
 ### Implementation (separate PR)
 - [ ] Implement CLI routing + aliases (`manifest`/`man`/`m`, `manifest preset`/`pre`/`p`).
