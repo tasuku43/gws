@@ -12,6 +12,8 @@ pending:
 ## Synopsis
 `gwst manifest add [--preset <name> | --review [<PR URL>] | --issue [<ISSUE_URL>] | --repo [<repo>]] [<WORKSPACE_ID>] [--branch <name>] [--base <ref>] [--no-apply] [--no-prompt]`
 
+Note: If no mode flag is provided and prompts are allowed, the mode is chosen via an interactive picker.
+
 ## Intent
 Create the desired workspace inventory in `gwst.yaml` using an interactive UX (same intent as the legacy `gwst create`), then reconcile the filesystem via `gwst apply` by default.
 
@@ -22,8 +24,14 @@ Create the desired workspace inventory in `gwst.yaml` using an interactive UX (s
 - If none are provided and `--no-prompt` is set, error.
 - When prompts are used, mode flags still run the unified prompt flow so the `Inputs` section is rendered as a single in-place interaction.
 - The optional positional `[<WORKSPACE_ID>]` overrides the default workspace ID derivation for single-workspace flows.
-  - This applies to URL-based modes as well (e.g. `--review <PR URL> [<WORKSPACE_ID>]`, `--issue <ISSUE_URL> [<WORKSPACE_ID>]`).
-  - In multi-select picker flows, providing `[<WORKSPACE_ID>]` is an error.
+  - This is supported only for `--preset` and `--repo` (single-workspace flows).
+  - For `--review` and `--issue`, the workspace ID is derived mechanically from the URL metadata; providing `[<WORKSPACE_ID>]` is an error.
+  - In multi-select picker flows, providing `[<WORKSPACE_ID>]` is also an error.
+
+### Workspace ID formats (review / issue)
+For URL-based modes, workspace IDs are derived mechanically:
+- `--review`: `<OWNER>-<REPO>-REVIEW-PR-<number>` (owner/repo uppercased)
+- `--issue`: `<OWNER>-<REPO>-ISSUE-<number>` (owner/repo uppercased)
 
 ## Behavior (high level)
 - Runs the same interactive selection and input UX as the legacy `gwst create` (mode picker + mode-specific prompts).
@@ -105,6 +113,11 @@ Defaults and `--branch` rules:
 - Always uses the common sectioned layout from `docs/spec/ui/UI.md`.
 - `Inputs`: interactive UX inputs (mode, repo/preset, workspace id, branch/base, etc).
 - `Plan`/`Apply`/`Result`: delegated to `gwst apply` when apply is run.
+
+### Info section (when apply runs)
+When apply runs, `gwst manifest add` should emit an `Info` section after `Inputs` to make the two-phase behavior explicit:
+- `manifest: updated gwst.yaml`
+- `apply: reconciling entire root (plan may include unrelated drift)`
 
 ### Output: `--no-apply`
 When `--no-apply` is set, `gwst manifest add` does not run apply and prints a short summary instead.
