@@ -69,7 +69,13 @@ func applyManifestMutation(ctx context.Context, rootDir string, updated manifest
 		renderer.Blank()
 	}
 
-	res, err := runApplyInternal(ctx, rootDir, renderer, opts.NoPrompt)
+	var res applyInternalResult
+	var err error
+	if planOK {
+		res, err = runApplyInternalWithPlan(ctx, rootDir, renderer, opts.NoPrompt, plan)
+	} else {
+		res, err = runApplyInternal(ctx, rootDir, renderer, opts.NoPrompt)
+	}
 	if err != nil {
 		return err
 	}
