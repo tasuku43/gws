@@ -6,10 +6,16 @@ status: implemented
 This directory holds gwst specifications in English. Each file uses frontmatter metadata to track implementation status so we can evolve features intentionally.
 
 ## Metadata rules
-- Required: `title`, `status` (`implemented` or `planned`).
+- Required: `title`, `status`.
 - Optional: `pending` (YAML array of short tokens/ids for unimplemented pieces). If `pending` is non-empty, treat the spec as needing work even when `status: implemented`.
 - Additional optional fields (e.g., `description`, `since`) are allowed.
 - Use YAML frontmatter at the top of each spec.
+
+### `status` values
+- `planned`: spec-first discussion; not implemented yet.
+- `implemented`: implemented and considered current.
+- `legacy`: implemented but being replaced by a newer concept/command; kept for reference during migration.
+- `superseded`: no longer current (replacement exists); kept for historical reference.
 
 ## Global CLI behavior
 - Command form: `gwst <command> [flags] [args]`.
@@ -47,3 +53,9 @@ ts=2026-01-17T12:35:01.000-08:00 pid=12345 trace=exec:beef phase=prompt prompt=w
 - UI specs: `docs/spec/ui/`
 
 Add new files in the same format when introducing new commands or options.
+
+### Command spec layout
+Command specs are organized to mirror the CLI shape:
+- Single-word commands: `docs/spec/commands/<command>.md` (e.g. `create.md`, `apply.md`)
+- Subcommands: `docs/spec/commands/<command>/<subcommand>.md` (e.g. `repo/get.md`, `preset/add.md`)
+- Command group overview (optional): `docs/spec/commands/<command>/README.md`

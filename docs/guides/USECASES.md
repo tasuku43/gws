@@ -12,14 +12,14 @@ Rating legend:
 
 ## Setup / Preparation
 - **Initialize root** — `gwst init` creates bare/workspaces and `gwst.yaml` in one shot. Once per environment. Rating: Excellent
-- **Define / check presets** — Edit `gwst.yaml` directly, confirm names with `gwst preset ls`, validate with `gwst preset validate`. Rating: Good
+- **Define / check presets** — Edit `gwst.yaml` directly, confirm names with `gwst manifest preset ls`, validate with `gwst manifest preset validate`. Rating: Good
 - **Fetch repositories** — `gwst repo get <repo>` creates bare store; `gwst repo ls` lists fetched repos. Rating: Good (does not fetch when bare already exists, so not ideal for updating)
 - **Switch roots** — Use `--root` or `GWST_ROOT` to separate environments. Rating: Excellent
 
 ## Start / During a Task
 - **Create workspace from preset** — `gwst create --preset <name> [<id>]`; prompts if omitted. `workspace_id` becomes the branch name for all repos. Rating: Excellent (interactive repo-get prompt appears when a preset repo is missing)
 - **Add a repo mid-task** — `gwst add <id> <repo>`; branch name = workspace_id, base = origin/HEAD. Rating: Excellent
-- **List workspaces** — `gwst ls` enumerates workspaces; `gwst ls --details` shows git status lines for warning repos. Rating: Good
+- **List workspaces** — `gwst manifest ls` lists inventory and shows drift indicators. Rating: Good
 - **Jump to a path** — `gwst path --workspace` prints a selected path for `cd`. Rating: Good
 - **Check status** — `gwst status <id>` shows dirty/untracked counts and HEAD per repo. Rating: Excellent (lightweight)
 
@@ -38,7 +38,7 @@ Rating legend:
 
 ## Known Gaps / Improvement Ideas
 - Keeping the bare store “always fresh” depends on manual `git fetch`; no built-in auto/update flow.
-- Default `gwst ls` is minimal; use `gwst ls --details` for git status context.
+- `gwst manifest ls` currently requires a drift model that remains stable and easy to understand.
 - `gwst doctor` checks only a narrow set; does not catch orphan worktrees, branch conflicts, or stale workspace artifacts.
 - No JSON/machine-readable output; agents must parse human text.
 - After `gwst create --review`, pulling newer PR updates still requires manual fetch; no auto-sync or “refresh review” command.

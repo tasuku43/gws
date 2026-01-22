@@ -28,6 +28,7 @@ type Metadata struct {
 	Mode        string `json:"mode,omitempty"`
 	PresetName  string `json:"preset_name,omitempty"`
 	SourceURL   string `json:"source_url,omitempty"`
+	BaseBranch  string `json:"base_branch,omitempty"`
 }
 
 func LoadMetadata(wsDir string) (Metadata, error) {
@@ -91,6 +92,7 @@ func normalizeMetadata(meta Metadata) Metadata {
 	meta.Mode = strings.TrimSpace(meta.Mode)
 	meta.PresetName = strings.TrimSpace(meta.PresetName)
 	meta.SourceURL = strings.TrimSpace(meta.SourceURL)
+	meta.BaseBranch = strings.TrimSpace(meta.BaseBranch)
 	return meta
 }
 
@@ -109,6 +111,14 @@ func validateMetadata(meta Metadata) error {
 		parsed, err := url.ParseRequestURI(meta.SourceURL)
 		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			return fmt.Errorf("invalid metadata source_url: %s", meta.SourceURL)
+		}
+	}
+	if meta.BaseBranch != "" {
+		if strings.ContainsAny(meta.BaseBranch, " \t\r\n") {
+			return fmt.Errorf("invalid metadata base_branch: %s", meta.BaseBranch)
+		}
+		if !strings.HasPrefix(meta.BaseBranch, "origin/") || meta.BaseBranch == "origin/" {
+			return fmt.Errorf("invalid metadata base_branch (must be origin/<branch>): %s", meta.BaseBranch)
 		}
 	}
 	return nil

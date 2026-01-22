@@ -21,3 +21,6 @@ status: implemented
 ## Ops
 - `docs/ops/RELEASING.md`
 - `docs/ops/RELEASE_PIPELINE.md`
+
+## Plans
+- `docs/plans/`

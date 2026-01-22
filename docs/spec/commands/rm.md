@@ -1,6 +1,7 @@
 ---
 title: "gwst rm"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest rm"
 ---
 
 ## Synopsis

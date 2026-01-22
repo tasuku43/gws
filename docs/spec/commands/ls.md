@@ -1,6 +1,8 @@
 ---
 title: "gwst ls"
-status: implemented
+status: superseded
+removed: true
+superseded_by: "gwst manifest ls"
 ---
 
 ## Synopsis
@@ -8,6 +10,9 @@ status: implemented
 
 ## Intent
 List workspaces under `<root>/workspaces` and show a quick view of the repos attached to each.
+
+## Migration note
+This command is removed. Use `gwst manifest ls` for inventory listing with drift indicators.
 
 ## Behavior
 - Scans `<root>/workspaces` for directories; ignores non-directories.

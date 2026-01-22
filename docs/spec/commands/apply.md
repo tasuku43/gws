@@ -23,6 +23,12 @@ Reconcile the filesystem to match `gwst.yaml` by computing a diff, showing a pla
   - For destructive actions, the prompt does not repeat per-repo git status output; users should review the plan output above before confirming.
 - If confirmed, applies actions in a stable order: removes, then updates, then adds.
   - When a repo update is a branch rename only (same repo key, different branch), gwst renames the branch in-place (no worktree remove/add) to match common local development workflows.
+- When applying `add` actions that require creating a new branch:
+  - If the target `branch` already exists in the bare store, gwst checks it out when adding the worktree.
+  - If the branch does not exist, gwst creates it from:
+    - `base_ref` if present in the repo entry in `gwst.yaml`, otherwise
+    - the repo's detected default branch (prefer `refs/remotes/origin/HEAD`), otherwise fallback heuristics (`HEAD`, then common branch names).
+- When gwst creates a new branch during apply, it records the chosen base as `base_branch` in the workspace `.gwst/metadata.json` (workspace-level, optional) so a future `gwst import` can restore `base_ref` in `gwst.yaml`.
 - Updates `gwst.yaml` by rewriting the full file after successful apply.
 
 ## Output (IA)

@@ -1,6 +1,8 @@
 ---
 title: "gwst preset ls"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest preset ls"
+migrated_from: "docs/spec/commands/preset-ls.md"
 ---
 
 ## Synopsis

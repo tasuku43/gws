@@ -62,6 +62,7 @@ type Repo struct {
 	Alias   string `yaml:"alias"`
 	RepoKey string `yaml:"repo_key"`
 	Branch  string `yaml:"branch"`
+	BaseRef string `yaml:"base_ref,omitempty"`
 }
 
 func Path(rootDir string) string {

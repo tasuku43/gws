@@ -1,6 +1,7 @@
 ---
 title: "gwst create"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest add"
 ---
 
 ## Synopsis

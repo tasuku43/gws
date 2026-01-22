@@ -1,6 +1,8 @@
 ---
 title: "gwst preset add"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest preset add"
+migrated_from: "docs/spec/commands/preset-add.md"
 ---
 
 ## Synopsis

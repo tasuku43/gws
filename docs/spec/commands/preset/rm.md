@@ -1,6 +1,8 @@
 ---
 title: "gwst preset rm"
-status: implemented
+status: legacy
+superseded_by: "gwst manifest preset rm"
+migrated_from: "docs/spec/commands/preset-rm.md"
 ---
 
 ## Synopsis

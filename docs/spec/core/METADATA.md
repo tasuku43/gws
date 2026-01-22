@@ -24,7 +24,8 @@ Each workspace stores minimal metadata under its `.gwst` directory so informatio
   "description": "fix login flow",
   "mode": "issue",
   "preset_name": "backend",
-  "source_url": "https://github.com/org/repo/issues/123"
+  "source_url": "https://github.com/org/repo/issues/123",
+  "base_branch": "origin/main"
 }
 ```
 
@@ -34,9 +35,15 @@ Each workspace stores minimal metadata under its `.gwst` directory so informatio
 - `mode` (optional): one of `preset`, `repo`, `review`, `issue`, `resume`, `add`.
 - `preset_name` (optional): set only when `mode=preset`.
 - `source_url` (optional): set when created from a URL (issue/review) or other modes with known origin.
+- `base_branch` (optional): base branch/ref used when creating new branches for this workspace the first time.
+  - When omitted, the implicit default is the repo's detected default branch (typically `refs/remotes/origin/HEAD`).
+  - When present, import may use it to restore `base_ref` in `gwst.yaml` so future re-creation can cut from the same base.
 
 ## Validation rules
 
 - If `mode` is present, it must be one of the supported values.
 - `preset_name` is required when `mode=preset`.
 - `source_url` must be a valid URL when present.
+- `base_branch` is optional.
+  - When present, it must be in the form `origin/<branch>`.
+  - `<branch>` must be a non-empty string (no whitespace).
