@@ -115,6 +115,7 @@ Rules:
   - `clean` should be treated as the default and omitted (no status tag).
 - If multiple conditions apply, the status tag should be the highest priority item:
   - `unknown` > `dirty` > `diverged` > `unpushed` (clean is omitted).
+- Semantics and detection guidance for these labels are defined by the command specs (e.g. `gwst manifest rm`).
 
 Color guidance (TTY):
 - `<WORKSPACE_ID>`: default text color.

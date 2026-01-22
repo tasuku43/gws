@@ -70,6 +70,20 @@ This command should preserve the spirit of the legacy `gwst rm` UX:
 - Detailed risk output should primarily come from the `gwst apply` plan output (same format as `gwst plan`), so users can review before confirming destructive removals.
 - Status aggregation priority (if multiple conditions apply): `unknown` > `dirty` > `diverged` > `unpushed` (clean is omitted).
 
+### Workspace State Model (picker tags)
+The picker status tags (`dirty`/`unpushed`/`diverged`/`unknown`) should preserve the semantics and detection rules of the legacy `gwst rm` behavior (documented here so the legacy spec can be removed later).
+
+Definitions (per repo, based on local state only):
+- **Clean**: no uncommitted changes; upstream set; not ahead/behind.
+- **Dirty**: uncommitted changes exist (including unmerged/conflicts).
+- **Unpushed**: local branch is ahead of upstream.
+- **Diverged**: local branch is both ahead and behind upstream.
+- **Unknown**: status cannot be determined or branch/upstream cannot be resolved (e.g. upstream missing, detached HEAD).
+
+Detection guidance:
+- Source of truth: `git status --porcelain=v2 -b` (local remote-tracking refs; no implicit fetch/prune).
+- Do **not** warn for behind-only (upstream advanced with no local changes).
+
 Example (interactive selection, conceptual):
 ```
 Inputs
