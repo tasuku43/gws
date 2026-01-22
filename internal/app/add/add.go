@@ -27,7 +27,11 @@ func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, 
 		return workspace.Repo{}, false, "", err
 	}
 
-	_, branchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/heads/%s", branch))
+	_, localBranchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/heads/%s", branch))
+	if err != nil {
+		return workspace.Repo{}, false, "", err
+	}
+	_, remoteBranchExists, err := gitcmd.ShowRef(ctx, store.StorePath, fmt.Sprintf("refs/remotes/origin/%s", branch))
 	if err != nil {
 		return workspace.Repo{}, false, "", err
 	}
@@ -45,7 +49,7 @@ func AddRepo(ctx context.Context, rootDir, workspaceID, repoKey, alias, branch, 
 		return workspace.Repo{}, false, "", err
 	}
 
-	createdNewBranch := !branchExists
+	createdNewBranch := !(localBranchExists || remoteBranchExists)
 	baseBranchForMetadata := ""
 	if createdNewBranch && strings.HasPrefix(baseRef, "origin/") {
 		baseBranchForMetadata = baseRef

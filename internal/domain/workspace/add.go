@@ -43,11 +43,25 @@ func AddWithBranch(ctx context.Context, rootDir, workspaceID, repoSpec, alias, b
 			return Repo{}, err
 		}
 	} else {
-		gitcmd.Logf("git worktree add -b %s %s %s", branch, prep.worktreePath, baseRef)
-		if err := worktreeAddWithRetry(ctx, prep.store.StorePath, func() error {
-			return gitcmd.WorktreeAddNewBranch(ctx, prep.store.StorePath, branch, prep.worktreePath, baseRef)
-		}); err != nil {
+		remoteName := fmt.Sprintf("origin/%s", branch)
+		remoteExists, err := remoteRefExists(ctx, prep.store.StorePath, remoteName)
+		if err != nil {
 			return Repo{}, err
+		}
+		if remoteExists {
+			gitcmd.Logf("git worktree add -b %s --track %s %s", branch, prep.worktreePath, remoteName)
+			if err := worktreeAddWithRetry(ctx, prep.store.StorePath, func() error {
+				return gitcmd.WorktreeAddTrackingBranch(ctx, prep.store.StorePath, branch, prep.worktreePath, remoteName)
+			}); err != nil {
+				return Repo{}, err
+			}
+		} else {
+			gitcmd.Logf("git worktree add -b %s %s %s", branch, prep.worktreePath, baseRef)
+			if err := worktreeAddWithRetry(ctx, prep.store.StorePath, func() error {
+				return gitcmd.WorktreeAddNewBranch(ctx, prep.store.StorePath, branch, prep.worktreePath, baseRef)
+			}); err != nil {
+				return Repo{}, err
+			}
 		}
 	}
 

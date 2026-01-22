@@ -213,6 +213,79 @@ func TestWorkspaceAddFetchesEvenWithinGraceWhenFetchTrue(t *testing.T) {
 	}
 }
 
+func TestWorkspaceAddTracksRemoteBranchWhenPresent(t *testing.T) {
+	t.Setenv("GIT_AUTHOR_NAME", "gwst")
+	t.Setenv("GIT_AUTHOR_EMAIL", "gwst@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "gwst")
+	t.Setenv("GIT_COMMITTER_EMAIL", "gwst@example.com")
+
+	ctx := context.Background()
+	tmp := t.TempDir()
+	rootDir := filepath.Join(tmp, "gwst")
+
+	remoteBase := filepath.Join(tmp, "remotes")
+	remotePath := filepath.Join(remoteBase, "org", "repo.git")
+	if err := os.MkdirAll(filepath.Dir(remotePath), 0o755); err != nil {
+		t.Fatalf("mkdir remote: %v", err)
+	}
+	runGit(t, "", "init", "--bare", remotePath)
+
+	seedDir := filepath.Join(tmp, "seed")
+	runGit(t, "", "init", seedDir)
+	runGit(t, seedDir, "checkout", "-b", "main")
+	if err := os.WriteFile(filepath.Join(seedDir, "README.md"), []byte("hello\n"), 0o644); err != nil {
+		t.Fatalf("write seed file: %v", err)
+	}
+	runGit(t, seedDir, "add", ".")
+	runGit(t, seedDir, "commit", "-m", "init")
+	runGit(t, seedDir, "remote", "add", "origin", remotePath)
+	runGit(t, seedDir, "push", "origin", "main")
+
+	runGit(t, seedDir, "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(seedDir, "FEATURE.md"), []byte("feature\n"), 0o644); err != nil {
+		t.Fatalf("write feature file: %v", err)
+	}
+	runGit(t, seedDir, "add", ".")
+	runGit(t, seedDir, "commit", "-m", "feature")
+	runGit(t, seedDir, "push", "origin", "feature")
+	featureHash := revParse(t, seedDir, "HEAD")
+
+	runGit(t, "", "--git-dir", remotePath, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	configPath := filepath.Join(tmp, "gitconfig")
+	fileURL := "file://" + filepath.ToSlash(remoteBase) + "/"
+	configData := fmt.Sprintf("[url \"%s\"]\n\tinsteadOf = https://example.com/\n", fileURL)
+	if err := os.WriteFile(configPath, []byte(configData), 0o644); err != nil {
+		t.Fatalf("write gitconfig: %v", err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", configPath)
+	t.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+
+	repoSpec := "https://example.com/org/repo.git"
+	store, err := repo.Get(ctx, rootDir, repoSpec)
+	if err != nil {
+		t.Fatalf("repo get: %v", err)
+	}
+	// Ensure we have only a remote-tracking ref for "feature" (no local head),
+	// so workspace.AddWithBranch must decide based on refs/remotes/origin/feature.
+	runGit(t, "", "--git-dir", store.StorePath, "update-ref", "-d", "refs/heads/feature")
+
+	if _, err := workspace.New(ctx, rootDir, "WS-1"); err != nil {
+		t.Fatalf("workspace new: %v", err)
+	}
+	if _, err := workspace.AddWithBranch(ctx, rootDir, "WS-1", repoSpec, "", "feature", "origin/main", true); err != nil {
+		t.Fatalf("workspace add: %v", err)
+	}
+
+	worktreePath := workspace.WorktreePath(rootDir, "WS-1", "repo")
+	head := revParse(t, worktreePath, "HEAD")
+	if head != featureHash {
+		t.Fatalf("expected worktree HEAD to match remote feature branch; got %s, want %s", head, featureHash)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
