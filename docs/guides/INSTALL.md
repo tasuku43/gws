@@ -45,3 +45,6 @@ Example (track latest):
 Verify:
 - `gion version`
 - `giongo --version`
+
+Shell integration (optional):
+- `eval "$(giongo init)"`

@@ -10,6 +10,7 @@ func printGiongoHelp(w io.Writer) {
 
 Usage:
   giongo [--print] [--root <path>]
+  giongo init
 
 Options:
   --print         print the selected absolute path

@@ -114,6 +114,12 @@ giongo() {
 }
 ```
 
+Shortcut (auto-generate the function for your shell):
+
+```bash
+eval "$(giongo init)"
+```
+
 ## The “create in bulk” entry points
 
 ### 1) From PRs / issues (GitHub only)

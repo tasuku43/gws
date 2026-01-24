@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -19,6 +20,9 @@ var isTerminal = isatty.IsTerminal
 
 // RunGiongo is the entrypoint for the giongo binary.
 func RunGiongo() error {
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		return runGiongoInit(os.Args[2:])
+	}
 	fs := flag.NewFlagSet("giongo", flag.ContinueOnError)
 	var rootFlag string
 	var printFlag bool
@@ -84,6 +88,77 @@ func RunGiongo() error {
 		fmt.Fprintln(os.Stdout, selected)
 	}
 	return nil
+}
+
+func runGiongoInit(args []string) error {
+	fs := flag.NewFlagSet("giongo init", flag.ContinueOnError)
+	var helpFlag bool
+	fs.BoolVar(&helpFlag, "help", false, "show help")
+	fs.BoolVar(&helpFlag, "h", false, "show help")
+	fs.SetOutput(os.Stdout)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stdout, "Usage: giongo init")
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if helpFlag {
+		fs.Usage()
+		return nil
+	}
+	if len(fs.Args()) > 0 {
+		return fmt.Errorf("unknown argument: %s", fs.Args()[0])
+	}
+	shellName := detectShell()
+	if shellName == "" {
+		return fmt.Errorf("unable to detect shell (set SHELL to /bin/zsh or /bin/bash)")
+	}
+	script, err := giongoInitScript(shellName)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(os.Stdout, script)
+	return nil
+}
+
+func detectShell() string {
+	value := strings.TrimSpace(os.Getenv("SHELL"))
+	if value == "" {
+		return ""
+	}
+	return filepath.Base(value)
+}
+
+func giongoInitScript(shellName string) (string, error) {
+	switch shellName {
+	case "zsh":
+		return giongoInitScriptFor("~/.zshrc"), nil
+	case "bash":
+		return giongoInitScriptFor("~/.bashrc (or ~/.bash_profile)"), nil
+	default:
+		return "", fmt.Errorf("unsupported shell: %s", shellName)
+	}
+}
+
+func giongoInitScriptFor(rcFile string) string {
+	lines := []string{
+		fmt.Sprintf("# Paste this into %s to enable giongo integration.", rcFile),
+		"# You can also add: eval \"$(giongo init)\"",
+		"giongo() {",
+		"  if [[ \"$1\" == \"init\" || \"$1\" == \"--help\" || \"$1\" == \"-h\" || \"$1\" == \"--version\" || \"$1\" == \"--print\" ]]; then",
+		"    command giongo \"$@\"",
+		"    return $?",
+		"  fi",
+		"  local dest",
+		"  dest=\"$(command giongo --print \"$@\")\" || return $?",
+		"  [[ -n \"$dest\" ]] && cd \"$dest\"",
+		"}",
+		"",
+	}
+	return strings.Join(lines, "\n")
 }
 
 func buildGiongoWorkspaceChoices(ctx context.Context, entries []workspace.Entry) ([]ui.WorkspaceChoice, error) {
