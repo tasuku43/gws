@@ -94,6 +94,7 @@ var allowedSubcommands = map[string]struct{}{
 	"fetch":            {},
 	"init":             {},
 	"ls-remote":        {},
+	"merge-base":       {},
 	"rev-parse":        {},
 	"remote":           {},
 	"show-ref":         {},

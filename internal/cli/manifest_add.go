@@ -542,6 +542,7 @@ func manifestAddReviewURL(ctx context.Context, rootDir, prURL string, apply func
 				Alias:   strings.TrimSpace(spec.Repo),
 				RepoKey: strings.TrimSpace(spec.RepoKey),
 				Branch:  strings.TrimSpace(pr.HeadRef),
+				BaseRef: formatPRBaseRef(pr.BaseRef),
 			},
 		},
 	}
@@ -616,6 +617,7 @@ func manifestAddReviewSelected(ctx context.Context, rootDir string, repoSpec str
 					Alias:   strings.TrimSpace(repoNorm.Repo),
 					RepoKey: strings.TrimSpace(repoNorm.RepoKey),
 					Branch:  strings.TrimSpace(pr.HeadRef),
+					BaseRef: formatPRBaseRef(pr.BaseRef),
 				},
 			},
 		}
