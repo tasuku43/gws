@@ -82,12 +82,6 @@ Run it with no args to choose a mode interactively (`repo` / `preset` / `review`
 gion manifest add --repo git@github.com:org/backend.git PROJ-123
 ```
 
-Open a workspace:
-
-```bash
-gion open PROJ-123
-```
-
 ### 4) Remove safely (bulk cleanup with a plan)
 
 ```bash
@@ -103,7 +97,6 @@ gion falls back to interactive prompts when you omit required args (unless `--no
 ```bash
 gion manifest add   # mode picker: repo / preset / review / issue
 gion manifest rm    # workspace multi-select
-gion open           # workspace picker
 ```
 
 ## The “create in bulk” entry points
