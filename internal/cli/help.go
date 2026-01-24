@@ -31,7 +31,6 @@ func printGlobalHelp(w io.Writer) {
 	fmt.Fprintln(w, helpCommand(theme, useColor, "import", fmt.Sprintf("rebuild %s from filesystem", manifest.FileName)))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "apply", fmt.Sprintf("apply %s to filesystem", manifest.FileName)))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "repo <subcommand>", "repo commands (get/ls)"))
-	fmt.Fprintln(w, helpCommand(theme, useColor, "open [<WORKSPACE_ID>] [--shell]", "open workspace in subshell"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "doctor [--fix | --self]", "check workspace/repo health"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "version", "print version"))
 	fmt.Fprintln(w, helpCommand(theme, useColor, "help [command]", "show help for a command"))
@@ -46,8 +45,6 @@ func printGlobalHelp(w io.Writer) {
 
 func printCommandHelp(cmd string, w io.Writer) bool {
 	switch cmd {
-	case "open":
-		printOpenHelp(w)
 	case "repo":
 		printRepoHelp(w)
 	case "manifest", "man", "m":
@@ -68,11 +65,6 @@ func printCommandHelp(cmd string, w io.Writer) bool {
 		return false
 	}
 	return true
-}
-
-func printOpenHelp(w io.Writer) {
-	fmt.Fprintln(w, "Usage: gion open [<WORKSPACE_ID>] [--shell]")
-	fmt.Fprintln(w, "  Open an interactive subshell at the workspace root")
 }
 
 func printRepoHelp(w io.Writer) {

@@ -35,5 +35,3 @@ GION_ROOT/workspaces/<WORKSPACE_ID>/
   <alias2>/
   .gion/metadata.json   # workspace metadata (optional: mode, description, source_url, preset_name, base_branch)
 ```
-
-`gion open` runs a subshell with `GION_WORKSPACE=<WORKSPACE_ID>` set for the child process.

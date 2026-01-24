@@ -84,8 +84,6 @@ func Run() error {
 		return runRepo(ctx, rootDir, args[1:])
 	case "manifest", "man", "m":
 		return runManifest(ctx, rootDir, args[1:], noPrompt)
-	case "open":
-		return runWorkspaceOpen(ctx, rootDir, args[1:], noPrompt)
 	case "plan":
 		return runPlan(ctx, rootDir, args[1:])
 	case "import":
