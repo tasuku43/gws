@@ -45,6 +45,16 @@
     - `go build ./...`
 - If you change CLI behavior, update docs in `docs/` and task notes if needed.
 - For UI implementations, always refer to `docs/spec/ui/UI.md` as the authoritative spec.
+
+## CLI output conventions (important)
+- Keep the section order from `docs/spec/ui/UI.md` and avoid emitting duplicate sections.
+- Follow the color semantics from `docs/spec/ui/UI.md` (success/warn/error/muted/accent) when adding colored output; do not introduce command-specific color rules without updating the spec.
+- For manifest mutation commands (`gwst manifest add/rm/gc/...`):
+  - Do not print "partial" output (e.g. an `Info` section) before calling `applyManifestMutation`.
+  - Instead, compute everything up front and render via `applyManifestMutation` hooks:
+    - `ShowPrelude` for user-provided inputs (interactive selections / flag-driven args).
+    - `RenderInfoBeforeApply` for derived metadata (warnings, scanned/candidates counts, computed candidate lists, etc.).
+  - Rationale: emitting sections before `applyManifestMutation` often leads to ordering drift (`Info` before `Inputs`) or duplicated `Info` sections.
 - When you know the related issue for a PR, include the issue link/number in the PR body(e.g. Fixes #<issue-number>).
 - Command specs live in `docs/spec/commands/` (YAML frontmatter with `status`):
     - `status: planned` means spec-first discussion; implement only after consensus and flip to `implemented`.

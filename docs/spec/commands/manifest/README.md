@@ -30,6 +30,7 @@ Workspace inventory (default target):
 - `gwst manifest ls`
 - `gwst manifest add`
 - `gwst manifest rm`
+- `gwst manifest gc`
 - `gwst manifest validate`
 
 Preset inventory:

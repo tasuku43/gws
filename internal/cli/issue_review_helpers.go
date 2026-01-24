@@ -100,6 +100,7 @@ type prSummary struct {
 	Number   int
 	Title    string
 	HeadRef  string
+	BaseRef  string
 	HeadRepo string
 	BaseRepo string
 }
@@ -275,6 +276,7 @@ type githubPRItem struct {
 		} `json:"repo"`
 	} `json:"head"`
 	Base struct {
+		Ref  string `json:"ref"`
 		Repo struct {
 			FullName string `json:"full_name"`
 		} `json:"repo"`
@@ -345,6 +347,7 @@ func normalizeGitHubPR(item githubPRItem) prSummary {
 		Number:   item.Number,
 		Title:    strings.TrimSpace(item.Title),
 		HeadRef:  strings.TrimSpace(item.Head.Ref),
+		BaseRef:  strings.TrimSpace(item.Base.Ref),
 		HeadRepo: strings.TrimSpace(item.Head.Repo.FullName),
 		BaseRepo: strings.TrimSpace(item.Base.Repo.FullName),
 	}
@@ -355,6 +358,7 @@ func encodeReviewSelection(pr prSummary) string {
 	return strings.Join([]string{
 		strconv.Itoa(pr.Number),
 		escape(pr.HeadRef),
+		escape(pr.BaseRef),
 		escape(pr.HeadRepo),
 		escape(pr.BaseRepo),
 		escape(pr.Title),
@@ -370,7 +374,7 @@ func decodeReviewSelection(value string) (prSummary, error) {
 		}
 		return prSummary{}, fmt.Errorf("missing PR metadata for #%d; re-run selection", num)
 	}
-	if len(parts) != 5 {
+	if len(parts) != 5 && len(parts) != 6 {
 		return prSummary{}, fmt.Errorf("invalid PR selection: %s", value)
 	}
 	num, err := strconv.Atoi(strings.TrimSpace(parts[0]))
@@ -384,12 +388,22 @@ func decodeReviewSelection(value string) (prSummary, error) {
 		}
 		return out
 	}
+	if len(parts) == 5 {
+		return prSummary{
+			Number:   num,
+			HeadRef:  strings.TrimSpace(unescape(parts[1])),
+			HeadRepo: strings.TrimSpace(unescape(parts[2])),
+			BaseRepo: strings.TrimSpace(unescape(parts[3])),
+			Title:    strings.TrimSpace(unescape(parts[4])),
+		}, nil
+	}
 	return prSummary{
 		Number:   num,
 		HeadRef:  strings.TrimSpace(unescape(parts[1])),
-		HeadRepo: strings.TrimSpace(unescape(parts[2])),
-		BaseRepo: strings.TrimSpace(unescape(parts[3])),
-		Title:    strings.TrimSpace(unescape(parts[4])),
+		BaseRef:  strings.TrimSpace(unescape(parts[2])),
+		HeadRepo: strings.TrimSpace(unescape(parts[3])),
+		BaseRepo: strings.TrimSpace(unescape(parts[4])),
+		Title:    strings.TrimSpace(unescape(parts[5])),
 	}, nil
 }
 
@@ -538,6 +552,14 @@ func buildIssueURLFromParts(host, owner, repoName string, number int) string {
 func buildPRURLFromParts(host, owner, repoName string, number int) string {
 	repoName = strings.TrimSuffix(repoName, ".git")
 	return fmt.Sprintf("https://%s/%s/%s/pull/%d", host, owner, repoName, number)
+}
+
+func formatPRBaseRef(baseBranch string) string {
+	baseBranch = strings.TrimSpace(baseBranch)
+	if baseBranch == "" {
+		return ""
+	}
+	return fmt.Sprintf("origin/%s", baseBranch)
 }
 
 func issueTitleFromLabel(label string, number int) string {
