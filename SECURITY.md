@@ -20,11 +20,12 @@ If you cannot use GitHub Security Advisories:
 - Affected versions / commit SHA (if known)
 - Any mitigations or workarounds
 
-## Our response process
+## Maintainer response process
 
-- We aim to acknowledge reports within **7 days** (best effort).
-- We will investigate, prepare a fix, and coordinate disclosure timing with the reporter when possible.
-- If a release is needed, we will publish a fix via GitHub Releases (see `docs/ops/RELEASING.md`).
+- This project is maintained by an individual maintainer on a best-effort basis.
+- I aim to acknowledge reports within **7 days** (best effort).
+- I will investigate, prepare a fix, and coordinate disclosure timing with the reporter when possible.
+- If a release is needed, I will publish a fix via GitHub Releases (see `docs/ops/RELEASING.md`).
 
 ## Supported versions
 
