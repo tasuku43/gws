@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -111,5 +112,52 @@ func TestStableLayout_TruncatesLinesWithDots(t *testing.T) {
 		if w := ansi.StringWidth(line); w > 20 {
 			t.Fatalf("expected line width <= 20, got %d (%q)", w, line)
 		}
+	}
+}
+
+func TestBranchInputModel_SeparateInputLineKeepsBranchVisible(t *testing.T) {
+	setWrapWidth(60)
+	defer setWrapWidth(0)
+	setStableLayout(true)
+	defer setStableLayout(false)
+
+	model := newBranchInputModel(
+		"title",
+		[]PromptChoice{{Label: "#96 Refactor dependencies to cli -> app -> domain -> infra", Value: "96"}},
+		func(index int, choice PromptChoice) string {
+			return fmt.Sprintf("issue #%d (%s)", index+1, choice.Label)
+		},
+		func(choice PromptChoice) string {
+			return "issue/96"
+		},
+		nil,
+		false,
+		DefaultTheme(),
+		false,
+	)
+	model.separateInputLine = true
+
+	out := model.ViewWithHeader("repo: git@github.com:tasuku43/gion.git")
+	if !strings.Contains(out, "branch:") {
+		t.Fatalf("expected output to contain branch line")
+	}
+	if !strings.Contains(out, "issue/96") {
+		t.Fatalf("expected output to contain current input value")
+	}
+}
+
+func TestConfirmInlineLineModel_IsMultiline(t *testing.T) {
+	setWrapWidth(20)
+	defer setWrapWidth(0)
+	setStableLayout(true)
+	defer setStableLayout(false)
+
+	model := newConfirmInlineLineModel("Apply changes? (default: No)", DefaultTheme(), false)
+	out := model.View()
+	if strings.Count(out, "\n") < 2 {
+		t.Fatalf("expected multiline output, got: %q", out)
+	}
+	if !strings.Contains(out, output.LogConnector) {
+		t.Fatalf("expected output to contain connector")
 	}
 }

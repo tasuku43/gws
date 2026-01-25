@@ -995,13 +995,15 @@ func (m confirmInlineLineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m confirmInlineLineModel) View() string {
 	label := promptLabel(m.theme, m.useColor, m.label)
-	line := fmt.Sprintf("%s (y/n): %s", label, m.input.View())
+	line := fmt.Sprintf("%s (y/n)", label)
 
 	prefix := output.StepPrefix + " "
 	if m.useColor {
 		prefix = m.theme.Accent.Render(output.StepPrefix) + " "
 	}
-	return output.Indent + prefix + line + "\n"
+	connector := mutedToken(m.theme, m.useColor, output.LogConnector)
+	return output.Indent + prefix + line + "\n" +
+		fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, connector, m.input.View())
 }
 
 type inputInlineModel struct {
@@ -1624,21 +1626,22 @@ func renderMultiSelectFrame(model multiSelectModel, height int, headerLines ...s
 }
 
 type branchInputModel struct {
-	title          string
-	items          []PromptChoice
-	index          int
-	input          textinput.Model
-	errorLine      string
-	err            error
-	done           bool
-	selections     []BranchSelection
-	usedBranches   map[string]int
-	itemLabel      func(int, PromptChoice) string
-	defaultBranch  func(PromptChoice) string
-	validateBranch func(string) error
-	ensureUnique   bool
-	theme          Theme
-	useColor       bool
+	title             string
+	items             []PromptChoice
+	index             int
+	input             textinput.Model
+	errorLine         string
+	err               error
+	done              bool
+	selections        []BranchSelection
+	usedBranches      map[string]int
+	itemLabel         func(int, PromptChoice) string
+	defaultBranch     func(PromptChoice) string
+	validateBranch    func(string) error
+	ensureUnique      bool
+	separateInputLine bool
+	theme             Theme
+	useColor          bool
 }
 
 func newBranchInputModel(title string, items []PromptChoice, itemLabel func(int, PromptChoice) string, defaultBranch func(PromptChoice) string, validateBranch func(string) error, ensureUnique bool, theme Theme, useColor bool) branchInputModel {
@@ -1745,6 +1748,42 @@ func (m branchInputModel) ViewWithHeader(headerLines ...string) string {
 		frame.SetInputsPrompt(lines...)
 		return frame.Render()
 	}
+
+	if m.separateInputLine {
+		frame.SetInputsPrompt(lines...)
+		maxIndex := m.index
+		if maxIndex > len(m.items)-1 {
+			maxIndex = len(m.items) - 1
+		}
+		for i := 0; i <= maxIndex; i++ {
+			item := m.items[i]
+			label := "item"
+			if m.itemLabel != nil {
+				label = m.itemLabel(i, item)
+			} else if strings.TrimSpace(item.Label) != "" {
+				label = item.Label
+			}
+			frame.AppendInputsPrompt(label)
+
+			value := ""
+			if i < m.index {
+				value = m.selections[i].Branch
+			} else {
+				value = m.input.View()
+			}
+			connector := mutedToken(m.theme, m.useColor, output.LogConnector)
+			frame.AppendInputsRaw(fmt.Sprintf("%s%s branch: %s", output.Indent+output.Indent, connector, value))
+		}
+		if m.errorLine != "" {
+			msg := m.errorLine
+			if m.useColor {
+				msg = m.theme.Error.Render(msg)
+			}
+			frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		}
+		return frame.Render()
+	}
+
 	maxIndex := m.index
 	if maxIndex > len(m.items)-1 {
 		maxIndex = len(m.items) - 1
@@ -1997,6 +2036,7 @@ func (m issueBranchSelectModel) startBranchInput() issueBranchSelectModel {
 		m.theme,
 		m.useColor,
 	)
+	m.branchModel.separateInputLine = true
 	m.errorLine = ""
 	return m
 }
