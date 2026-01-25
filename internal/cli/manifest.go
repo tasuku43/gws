@@ -131,7 +131,9 @@ func formatRiskTag(r *ui.Renderer, kind workspace.WorkspaceStateKind) string {
 	switch kind {
 	case workspace.WorkspaceStateUnknown:
 		return r.ErrorText(fmt.Sprintf("[%s]", kind))
-	case workspace.WorkspaceStateDirty, workspace.WorkspaceStateUnpushed, workspace.WorkspaceStateDiverged:
+	case workspace.WorkspaceStateDirty:
+		return r.ErrorText(fmt.Sprintf("[%s]", kind))
+	case workspace.WorkspaceStateUnpushed, workspace.WorkspaceStateDiverged:
 		return r.WarnText(fmt.Sprintf("[%s]", kind))
 	default:
 		return ""
