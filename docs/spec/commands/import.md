@@ -1,9 +1,6 @@
 ---
 title: "gion import"
 status: implemented
-pending:
-  - stable-manifest-ordering
-  - align-output-with-common-layout
 ---
 
 ## Synopsis
@@ -25,9 +22,16 @@ Rebuild `gion.yaml` from the filesystem and `.gion/metadata.json` to restore the
 - `--no-prompt` is accepted but currently has no effect (kept for CLI consistency).
 
 ## Output
-- Reports warnings for unreadable workspaces or invalid metadata under a `warnings` section.
-- Prints a unified diff under a `Diff` section (or `no changes` when identical).
-  - The diff is computed between the current manifest bytes (or an empty manifest if missing) and the imported manifest bytes.
+- `Inputs` section (optional):
+  - Omitted when running with the default root and no flags.
+  - Prints `root: <path>` when shown.
+  - Prints `no-prompt: true` only when `--no-prompt` is provided.
+- `Info` section (optional):
+  - Prints warnings for unreadable workspaces or invalid metadata under `warnings`.
+- `Result` section:
+  - Prints `no changes` when the current manifest bytes match the imported manifest bytes.
+  - Otherwise prints a unified diff.
+    - The diff is computed between the current manifest bytes (or an empty manifest if missing) and the imported manifest bytes.
 
 ## Success Criteria
 - `gion.yaml` reflects the current filesystem state.
