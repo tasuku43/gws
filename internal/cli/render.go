@@ -121,20 +121,20 @@ func buildUnifiedDiffLines(current, next []byte) ([]string, error) {
 	return lines, nil
 }
 
-func renderDiffLines(renderer *ui.Renderer, lines []string) {
+func renderDiffLines(renderer *ui.Renderer, lines []string, prefix string) {
 	if renderer == nil || len(lines) == 0 {
 		return
 	}
 	for _, line := range lines {
 		switch {
 		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"), strings.HasPrefix(line, "@@"):
-			renderer.TreeLineAccent("", line)
+			renderer.TreeLineAccent(prefix, line)
 		case strings.HasPrefix(line, "+"):
-			renderer.TreeLineSuccess("", line)
+			renderer.TreeLineSuccess(prefix, line)
 		case strings.HasPrefix(line, "-"):
-			renderer.TreeLineError("", line)
+			renderer.TreeLineError(prefix, line)
 		default:
-			renderer.TreeLine("", line)
+			renderer.TreeLine(prefix, line)
 		}
 	}
 }

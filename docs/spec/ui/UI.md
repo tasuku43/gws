@@ -45,7 +45,8 @@ Rules:
 - Indent: 2 spaces
 - 1 blank line between sections
 - Section order is fixed: Inputs → Info → Plan → Steps → Result → Suggestion
-- Result lines are bullets (use the same prefix as Steps)
+- Result summary lines are bullets (use the same prefix as Steps)
+- Multi-line blocks (e.g. unified diffs) may be rendered as indented raw lines under `Result` without bullet prefixes
 - No success banner; success is implied in Result section
 - Long lines should wrap to the terminal width; continuation lines keep the same text indent (prefix width)
 

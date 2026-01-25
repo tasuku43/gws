@@ -9,6 +9,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/tasuku43/gwst/internal/app/manifestimport"
 	"github.com/tasuku43/gwst/internal/domain/manifest"
+	"github.com/tasuku43/gwst/internal/infra/paths"
 	"github.com/tasuku43/gwst/internal/ui"
 )
 
@@ -52,6 +53,24 @@ func runImport(ctx context.Context, rootDir string, args []string, noPrompt bool
 		return err
 	}
 
+	showInputs := noPrompt
+	if !showInputs {
+		defaultRoot, err := paths.ResolveRoot("")
+		if err != nil {
+			showInputs = true
+		} else if defaultRoot != rootDir {
+			showInputs = true
+		}
+	}
+	if showInputs {
+		renderer.Section("Inputs")
+		renderer.Bullet(fmt.Sprintf("root: %s", rootDir))
+		if noPrompt {
+			renderer.Bullet("no-prompt: true")
+		}
+		renderer.Blank()
+	}
+
 	var warningLines []string
 	for _, warn := range result.Warnings {
 		warningLines = append(warningLines, warn.Error())
@@ -61,9 +80,9 @@ func runImport(ctx context.Context, rootDir string, args []string, noPrompt bool
 		renderer.Blank()
 	}
 
-	renderer.Section("Diff")
+	renderer.Section("Result")
 	if len(diffLines) > 0 {
-		renderDiffLines(renderer, diffLines)
+		renderDiffLines(renderer, diffLines, "")
 	} else {
 		renderer.Bullet("no changes")
 	}
