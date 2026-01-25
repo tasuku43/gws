@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/tasuku43/gwst/internal/infra/output"
 )
 
@@ -994,13 +995,15 @@ func (m confirmInlineLineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m confirmInlineLineModel) View() string {
 	label := promptLabel(m.theme, m.useColor, m.label)
-	line := fmt.Sprintf("%s (y/n): %s", label, m.input.View())
+	line := fmt.Sprintf("%s (y/n)", label)
 
 	prefix := output.StepPrefix + " "
 	if m.useColor {
 		prefix = m.theme.Accent.Render(output.StepPrefix) + " "
 	}
-	return output.Indent + prefix + line + "\n"
+	connector := mutedToken(m.theme, m.useColor, output.LogConnector)
+	return output.Indent + prefix + line + "\n" +
+		fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, connector, m.input.View())
 }
 
 type inputInlineModel struct {
@@ -1279,7 +1282,8 @@ func (m presetRepoSelectModel) View() string {
 	if m.errorLine != "" {
 		infoLines++
 	}
-	maxLines := listMaxLines(m.height, 2, infoLines)
+	// +1 for the inline "finish" help line appended under Inputs.
+	maxLines := listMaxLines(m.height, 3, infoLines)
 	rawLines := collectLines(func(b *strings.Builder) {
 		renderRepoChoiceList(b, m.filtered, m.cursor, maxLines, m.useColor, m.theme)
 	})
@@ -1592,7 +1596,8 @@ func renderMultiSelectFrame(model multiSelectModel, height int, headerLines ...s
 	if model.errorLine != "" {
 		infoLines++
 	}
-	maxLines := listMaxLines(height, len(lines), infoLines)
+	// +1 for the inline "finish" help line appended under Inputs.
+	maxLines := listMaxLines(height, len(lines)+1, infoLines)
 	rawLines := collectLines(func(b *strings.Builder) {
 		renderRepoChoiceList(b, model.filtered, model.cursor, maxLines, model.useColor, model.theme)
 	})
@@ -1621,21 +1626,22 @@ func renderMultiSelectFrame(model multiSelectModel, height int, headerLines ...s
 }
 
 type branchInputModel struct {
-	title          string
-	items          []PromptChoice
-	index          int
-	input          textinput.Model
-	errorLine      string
-	err            error
-	done           bool
-	selections     []BranchSelection
-	usedBranches   map[string]int
-	itemLabel      func(int, PromptChoice) string
-	defaultBranch  func(PromptChoice) string
-	validateBranch func(string) error
-	ensureUnique   bool
-	theme          Theme
-	useColor       bool
+	title             string
+	items             []PromptChoice
+	index             int
+	input             textinput.Model
+	errorLine         string
+	err               error
+	done              bool
+	selections        []BranchSelection
+	usedBranches      map[string]int
+	itemLabel         func(int, PromptChoice) string
+	defaultBranch     func(PromptChoice) string
+	validateBranch    func(string) error
+	ensureUnique      bool
+	separateInputLine bool
+	theme             Theme
+	useColor          bool
 }
 
 func newBranchInputModel(title string, items []PromptChoice, itemLabel func(int, PromptChoice) string, defaultBranch func(PromptChoice) string, validateBranch func(string) error, ensureUnique bool, theme Theme, useColor bool) branchInputModel {
@@ -1742,6 +1748,42 @@ func (m branchInputModel) ViewWithHeader(headerLines ...string) string {
 		frame.SetInputsPrompt(lines...)
 		return frame.Render()
 	}
+
+	if m.separateInputLine {
+		frame.SetInputsPrompt(lines...)
+		maxIndex := m.index
+		if maxIndex > len(m.items)-1 {
+			maxIndex = len(m.items) - 1
+		}
+		for i := 0; i <= maxIndex; i++ {
+			item := m.items[i]
+			label := "item"
+			if m.itemLabel != nil {
+				label = m.itemLabel(i, item)
+			} else if strings.TrimSpace(item.Label) != "" {
+				label = item.Label
+			}
+			frame.AppendInputsPrompt(label)
+
+			value := ""
+			if i < m.index {
+				value = m.selections[i].Branch
+			} else {
+				value = m.input.View()
+			}
+			connector := mutedToken(m.theme, m.useColor, output.LogConnector)
+			frame.AppendInputsRaw(fmt.Sprintf("%s%s branch: %s", output.Indent+output.Indent, connector, value))
+		}
+		if m.errorLine != "" {
+			msg := m.errorLine
+			if m.useColor {
+				msg = m.theme.Error.Render(msg)
+			}
+			frame.AppendInfoRaw(fmt.Sprintf("%s%s %s", output.Indent, mutedToken(m.theme, m.useColor, output.LogConnector), msg))
+		}
+		return frame.Render()
+	}
+
 	maxIndex := m.index
 	if maxIndex > len(m.items)-1 {
 		maxIndex = len(m.items) - 1
@@ -1994,6 +2036,7 @@ func (m issueBranchSelectModel) startBranchInput() issueBranchSelectModel {
 		m.theme,
 		m.useColor,
 	)
+	m.branchModel.separateInputLine = true
 	m.errorLine = ""
 	return m
 }
@@ -2119,6 +2162,8 @@ func unwrapWindowSizeModel(model tea.Model) tea.Model {
 }
 
 func runProgram(model tea.Model) (tea.Model, error) {
+	setStableLayout(true)
+	defer setStableLayout(false)
 	out, err := tea.NewProgram(windowSizeModel{inner: model}).Run()
 	if err != nil {
 		return out, err
@@ -2127,6 +2172,8 @@ func runProgram(model tea.Model) (tea.Model, error) {
 }
 
 func runProgramWithOutput(model tea.Model, out io.Writer) (tea.Model, error) {
+	setStableLayout(true)
+	defer setStableLayout(false)
 	final, err := tea.NewProgram(windowSizeModel{inner: model}, tea.WithOutput(out)).Run()
 	if err != nil {
 		return final, err
@@ -2135,6 +2182,8 @@ func runProgramWithOutput(model tea.Model, out io.Writer) (tea.Model, error) {
 }
 
 func runProgramWithIO(model tea.Model, in io.Reader, out io.Writer, altScreen bool) (tea.Model, error) {
+	setStableLayout(true)
+	defer setStableLayout(false)
 	opts := []tea.ProgramOption{tea.WithInput(in), tea.WithOutput(out)}
 	if altScreen {
 		opts = append(opts, tea.WithAltScreen())
@@ -2166,6 +2215,29 @@ func splitLines(text string) []string {
 		out = append(out, line)
 	}
 	return out
+}
+
+func wrapRawLineToWidth(line string, width int) []string {
+	if width <= 0 {
+		return []string{line}
+	}
+	prefix, rest, ok := splitRawLinePrefix(line)
+	if !ok {
+		prefix = ""
+		rest = line
+	}
+	prefixWidth := lipgloss.Width(prefix)
+	available := width - prefixWidth
+	if available <= 0 {
+		return []string{line}
+	}
+	tail := "..."
+	if available < ansi.StringWidth(tail) {
+		tail = ""
+	}
+	single := strings.ReplaceAll(rest, "\n", " ")
+	truncated := ansi.Truncate(single, available, tail)
+	return []string{prefix + truncated}
 }
 
 func max(a, b int) int {
@@ -2418,12 +2490,8 @@ func (m workspaceRepoSelectModel) View() string {
 	label := promptLabel(m.theme, m.useColor, "workspace")
 	frame.SetInputsPrompt(fmt.Sprintf("%s: %s", label, m.input.View()))
 	maxLines := listMaxLines(m.height, 1, 0)
-	cursorWorkspace := 0
-	if len(m.selections) > 0 && m.cursor >= 0 && m.cursor < len(m.selections) {
-		cursorWorkspace = m.selections[m.cursor].WorkspaceIndex
-	}
 	rawLines := collectLines(func(b *strings.Builder) {
-		renderWorkspaceRepoChoiceList(b, m.filtered, m.cursor, cursorWorkspace, maxLines, m.useColor, m.theme)
+		renderWorkspaceRepoChoiceList(b, m.filtered, m.cursor, maxLines, m.useColor, m.theme)
 	})
 	frame.AppendInputsRaw(rawLines...)
 	return frame.Render()
@@ -2787,7 +2855,8 @@ func (m workspaceMultiSelectModel) View() string {
 		})
 		infoLines += 1 + len(blockedLines)
 	}
-	maxLines := listMaxLines(m.height, 1, infoLines)
+	// +1 for the inline "finish" help line appended under Inputs.
+	maxLines := listMaxLines(m.height, 2, infoLines)
 	rawLines := collectLines(func(b *strings.Builder) {
 		renderWorkspaceChoiceList(b, m.filtered, m.cursor, maxLines, m.useColor, m.theme)
 	})
@@ -2868,14 +2937,39 @@ func renderChoiceList(b *strings.Builder, items []string, cursor int, maxVisible
 		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
 		return
 	}
-	start, end := listWindow(len(items), cursor, maxVisible)
-	for i := start; i < end; i++ {
+
+	width := currentWrapWidth()
+	groups := make([]workspaceRepoChoiceGroup, 0, len(items))
+	for i := range items {
 		item := items[i]
 		display := item
 		if i == cursor && useColor {
 			display = lipgloss.NewStyle().Bold(true).Render(display)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), display))
+		line := fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), display)
+		groups = append(groups, workspaceRepoChoiceGroup{lines: wrapRawLineToWidth(line, width)})
+	}
+
+	if cursor < 0 || cursor >= len(groups) {
+		cursor = 0
+	}
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+	if len(groups[cursor].lines) > maxVisible {
+		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
+		for i := start; i < end; i++ {
+			b.WriteString(groups[cursor].lines[i])
+			b.WriteString("\n")
+		}
+		return
+	}
+	startGroup, endGroup := groupWindowByLineBudget(groups, cursor, maxVisible)
+	for gi := startGroup; gi < endGroup; gi++ {
+		for _, line := range groups[gi].lines {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
 	}
 }
 
@@ -2888,8 +2982,10 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
 		return
 	}
-	start, end := listWindow(len(items), cursor, maxVisible)
-	for i := start; i < end; i++ {
+
+	width := currentWrapWidth()
+	groups := make([]workspaceRepoChoiceGroup, 0, len(items))
+	for i := range items {
 		item := items[i]
 		display := item.Label
 		if i == cursor && useColor {
@@ -2903,7 +2999,30 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 				display += " - " + desc
 			}
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), display))
+		line := fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), display)
+		groups = append(groups, workspaceRepoChoiceGroup{lines: wrapRawLineToWidth(line, width)})
+	}
+
+	if cursor < 0 || cursor >= len(groups) {
+		cursor = 0
+	}
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+	if len(groups[cursor].lines) > maxVisible {
+		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
+		for i := start; i < end; i++ {
+			b.WriteString(groups[cursor].lines[i])
+			b.WriteString("\n")
+		}
+		return
+	}
+	startGroup, endGroup := groupWindowByLineBudget(groups, cursor, maxVisible)
+	for gi := startGroup; gi < endGroup; gi++ {
+		for _, line := range groups[gi].lines {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
 	}
 }
 
@@ -3064,22 +3183,13 @@ func renderSelectedWorkspaceTree(b *strings.Builder, items []WorkspaceChoice, us
 	}
 }
 
-func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, cursor int, cursorWorkspace int, maxVisible int, useColor bool, theme Theme) {
-	if len(items) == 0 {
-		msg := "no matches"
-		if useColor {
-			msg = theme.Muted.Render(msg)
-		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
-		return
-	}
+type workspaceRepoChoiceGroup struct {
+	lines []string
+}
 
-	start, end := listWindow(len(items), cursorWorkspace, maxVisible)
-	selectIndex := 0
-	for i := 0; i < start; i++ {
-		selectIndex++
-		selectIndex += len(items[i].Repos)
-	}
+func buildWorkspaceRepoChoiceGroups(items []WorkspaceChoice, cursor int, useColor bool, theme Theme) ([]workspaceRepoChoiceGroup, int, int) {
+	var groups []workspaceRepoChoiceGroup
+	width := currentWrapWidth()
 
 	baseIndent := output.Indent + output.Indent
 	selectIndent := func(selected bool) string {
@@ -3089,10 +3199,15 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 		return ">" + baseIndent[1:]
 	}
 
-	for i := start; i < end; i++ {
-		item := items[i]
+	cursorWorkspace := -1
+	cursorLine := -1
+
+	selectIndex := 0
+	for wsIndex, item := range items {
+		var g workspaceRepoChoiceGroup
+
 		workspaceConnector := "├─"
-		isLastWorkspace := i == end-1
+		isLastWorkspace := wsIndex == len(items)-1
 		if isLastWorkspace {
 			workspaceConnector = "└─"
 		}
@@ -3141,15 +3256,17 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 			}
 		}
 		indent := selectIndent(selectedWorkspace)
-		b.WriteString(fmt.Sprintf("%s%s %s\n", indent, connectorToken, display))
+		workspaceLine := fmt.Sprintf("%s%s %s", indent, connectorToken, display)
+		if selectedWorkspace {
+			cursorWorkspace = wsIndex
+			cursorLine = len(g.lines)
+		}
+		g.lines = append(g.lines, wrapRawLineToWidth(workspaceLine, width)...)
 		selectIndex++
 
-		if len(item.Repos) == 0 {
-			continue
-		}
-		for j, repo := range item.Repos {
+		for repoIndex, repo := range item.Repos {
 			repoConnector := "├─"
-			isLastRepo := j == len(item.Repos)-1
+			isLastRepo := repoIndex == len(item.Repos)-1
 			if isLastRepo {
 				repoConnector = "└─"
 			}
@@ -3165,10 +3282,14 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 				repoLabel = lipgloss.NewStyle().Bold(true).Render(repoLabel)
 			}
 			indent := selectIndent(selectedRepo)
-			line := fmt.Sprintf("%s%s%s %s", indent, stemToken, connector, repoLabel)
-			b.WriteString(line)
-			b.WriteString("\n")
+			repoLine := fmt.Sprintf("%s%s%s %s", indent, stemToken, connector, repoLabel)
+			if selectedRepo {
+				cursorWorkspace = wsIndex
+				cursorLine = len(g.lines)
+			}
+			g.lines = append(g.lines, wrapRawLineToWidth(repoLine, width)...)
 			selectIndex++
+
 			if len(repo.Details) == 0 {
 				continue
 			}
@@ -3184,9 +3305,93 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 				if useColor {
 					detailLine = theme.Muted.Render(detailLine)
 				}
-				b.WriteString(detailLine)
-				b.WriteString("\n")
+				g.lines = append(g.lines, wrapRawLineToWidth(detailLine, width)...)
 			}
+		}
+		groups = append(groups, g)
+	}
+	return groups, cursorWorkspace, cursorLine
+}
+
+func groupWindowByLineBudget(groups []workspaceRepoChoiceGroup, cursorWorkspace int, maxLines int) (int, int) {
+	if len(groups) == 0 {
+		return 0, 0
+	}
+	if cursorWorkspace < 0 || cursorWorkspace >= len(groups) {
+		cursorWorkspace = 0
+	}
+	start := cursorWorkspace
+	end := cursorWorkspace + 1
+	budget := len(groups[cursorWorkspace].lines)
+
+	for {
+		canAddAbove := start > 0 && budget+len(groups[start-1].lines) <= maxLines
+		canAddBelow := end < len(groups) && budget+len(groups[end].lines) <= maxLines
+		if !canAddAbove && !canAddBelow {
+			break
+		}
+		if canAddAbove && canAddBelow {
+			aboveSpan := cursorWorkspace - start
+			belowSpan := (end - 1) - cursorWorkspace
+			if aboveSpan <= belowSpan {
+				start--
+				budget += len(groups[start].lines)
+				continue
+			}
+			budget += len(groups[end].lines)
+			end++
+			continue
+		}
+		if canAddAbove {
+			start--
+			budget += len(groups[start].lines)
+			continue
+		}
+		budget += len(groups[end].lines)
+		end++
+	}
+	return start, end
+}
+
+func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, cursor int, maxVisible int, useColor bool, theme Theme) {
+	groups, cursorWorkspace, cursorLine := buildWorkspaceRepoChoiceGroups(items, cursor, useColor, theme)
+	if len(groups) == 0 {
+		msg := "no matches"
+		if useColor {
+			msg = theme.Muted.Render(msg)
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
+		return
+	}
+
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+
+	if cursorWorkspace < 0 || cursorWorkspace >= len(groups) {
+		cursorWorkspace = 0
+		cursorLine = 0
+	}
+	cursorGroup := groups[cursorWorkspace]
+	if cursorLine < 0 || cursorLine >= len(cursorGroup.lines) {
+		cursorLine = 0
+	}
+
+	// If a single workspace block exceeds the viewport, scroll inside that block.
+	if len(cursorGroup.lines) > maxVisible {
+		start, end := listWindow(len(cursorGroup.lines), cursorLine, maxVisible)
+		for i := start; i < end; i++ {
+			b.WriteString(cursorGroup.lines[i])
+			b.WriteString("\n")
+		}
+		return
+	}
+
+	startGroup, endGroup := groupWindowByLineBudget(groups, cursorWorkspace, maxVisible)
+	for gi := startGroup; gi < endGroup; gi++ {
+		for _, line := range groups[gi].lines {
+			b.WriteString(line)
+			b.WriteString("\n")
 		}
 	}
 }
@@ -3200,23 +3405,12 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
 		return
 	}
-	start, end := listWindow(len(items), cursor, maxVisible)
-	for i := start; i < end; i++ {
-		item := items[i]
-		workspaceConnector := "├─"
-		isLastWorkspace := i == end-1
-		if isLastWorkspace {
-			workspaceConnector = "└─"
-		}
-		connectorToken := workspaceConnector
-		if useColor {
-			connectorToken = theme.Muted.Render(workspaceConnector)
-		}
-		workspaceStem := "│ "
-		if isLastWorkspace {
-			workspaceStem = "  "
-		}
 
+	width := currentWrapWidth()
+	groups := make([]workspaceRepoChoiceGroup, 0, len(items))
+	for i := range items {
+		item := items[i]
+		connectorToken := mutedToken(theme, useColor, output.LogConnector)
 		displayID := item.ID
 		warnValue := shortWarningTag(item.Warning)
 		hasWarn := strings.TrimSpace(warnValue) != "" && strings.TrimSpace(strings.ToLower(warnValue)) != "clean"
@@ -3251,40 +3445,29 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 				display += " - " + desc
 			}
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, connectorToken, display))
-		if len(item.Repos) == 0 {
-			continue
+		line := fmt.Sprintf("%s%s %s", output.Indent+output.Indent, connectorToken, display)
+		groups = append(groups, workspaceRepoChoiceGroup{lines: wrapRawLineToWidth(line, width)})
+	}
+
+	if cursor < 0 || cursor >= len(groups) {
+		cursor = 0
+	}
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+	if len(groups[cursor].lines) > maxVisible {
+		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
+		for i := start; i < end; i++ {
+			b.WriteString(groups[cursor].lines[i])
+			b.WriteString("\n")
 		}
-		for j, repo := range item.Repos {
-			repoConnector := "├─"
-			isLastRepo := j == len(item.Repos)-1
-			if isLastRepo {
-				repoConnector = "└─"
-			}
-			line := fmt.Sprintf("%s%s%s %s", output.Indent+output.Indent, workspaceStem, repoConnector, repo.Label)
-			if useColor {
-				line = theme.Muted.Render(line)
-			}
+		return
+	}
+	startGroup, endGroup := groupWindowByLineBudget(groups, cursor, maxVisible)
+	for gi := startGroup; gi < endGroup; gi++ {
+		for _, line := range groups[gi].lines {
 			b.WriteString(line)
 			b.WriteString("\n")
-			if len(repo.Details) == 0 {
-				continue
-			}
-			repoStem := "│  "
-			if isLastRepo {
-				repoStem = "   "
-			}
-			for _, detail := range repo.Details {
-				if strings.TrimSpace(detail) == "" {
-					continue
-				}
-				detailLine := fmt.Sprintf("%s%s%s%s", output.Indent+output.Indent, workspaceStem, repoStem, detail)
-				if useColor {
-					detailLine = theme.Muted.Render(detailLine)
-				}
-				b.WriteString(detailLine)
-				b.WriteString("\n")
-			}
 		}
 	}
 }
