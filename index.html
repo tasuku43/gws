@@ -239,8 +239,8 @@
           <div class="kicker">gion</div>
           <h1>Git workspaces, as code.</h1>
           <p class="tagline">
-            Built on Git worktrees: declare inventory in YAML, then plan/apply to reconcile safely.
-            Reproducible by default, safe for bulk operations.
+            Define workspaces in YAML, then plan/apply to reconcile safely. Reproducible by default, safe
+            for bulk operations.
           </p>
           <div class="cta-row">
             <a class="btn primary" href="https://github.com/tasuku43/gion#quickstart-5-minutes"
@@ -250,10 +250,10 @@
           </div>
         </div>
         <div class="demo">
-          <div class="card">
-            <h3>Demo (45s)</h3>
-            <p>Coming soon — new demo video in progress.</p>
-          </div>
+          <video controls playsinline preload="metadata" aria-label="gion demo video">
+            <source src="demo.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
         </div>
       </header>
 
@@ -261,23 +261,19 @@
         <h2>Why gion</h2>
         <div class="grid">
           <div class="card">
-            <h3>Reproducible by design</h3>
-            <p>
-              Workspace inventory is code (<code>gion.yaml</code>), synced safely via diffs.
-            </p>
+            <h3>Reproducible inventory</h3>
+            <p>Workspace inventory lives in <code>gion.yaml</code>, reconciled via plan/apply.</p>
           </div>
           <div class="card">
-            <h3>Bulk operations without fear</h3>
-            <p>
-              Create and remove many workspaces at once, with guardrails before risky deletions.
-            </p>
+            <h3>Bulk create & cleanup</h3>
+            <p>Create and remove many workspaces with diffs and confirmations for deletions.</p>
           </div>
           <div class="card">
             <h3>Multi-repo tasks</h3>
             <p>Presets bundle multiple repos into a single task workspace.</p>
           </div>
           <div class="card">
-            <h3>One inventory, many entry points</h3>
+            <h3>Many entry points</h3>
             <p>Start from repos, presets, or PRs/issues and reconcile in one apply.</p>
           </div>
         </div>
@@ -287,8 +283,8 @@
         <h2>Quickstart (via README)</h2>
         <div class="card">
           <p>
-            The README is the single source of truth for setup, demos, and the command flow.
-            Start there, then come back for the overview.
+            The README is the source of truth for install and the command flow. Start there, then come
+            back for the overview.
           </p>
           <div class="cta-row" style="margin-top: 12px">
             <a class="btn primary" href="https://github.com/tasuku43/gion#quickstart-5-minutes"
@@ -309,11 +305,11 @@
           </div>
           <div class="card">
             <h3>mise</h3>
-            <p><code>mise use -g github:tasuku43/gion</code></p>
+            <p><code>mise use -g github:tasuku43/gion@&lt;version&gt;</code></p>
           </div>
           <div class="card">
             <h3>Direct download</h3>
-            <p>Download the prebuilt binary and put <code>gion</code> on your PATH.</p>
+            <p>Download the prebuilt binaries and put <code>gion</code> on your PATH.</p>
           </div>
         </div>
       </section>
@@ -321,7 +317,7 @@
       <section>
         <h2>Workflow</h2>
         <div class="steps">
-          <div>1) Declare inventory in <code>gion.yaml</code></div>
+          <div>1) Declare in <code>gion.yaml</code></div>
           <div>2) <code>gion plan</code> (diff only)</div>
           <div>3) <code>gion apply</code> (confirm destructive changes)</div>
         </div>
