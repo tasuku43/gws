@@ -2286,8 +2286,8 @@ func listMaxLines(height int, inputLines int, infoLines int) int {
 		total += 1 + infoLines + 1
 	}
 	maxLines := height - total
-	if maxLines < 1 {
-		return 1
+	if maxLines < 0 {
+		return 0
 	}
 	return maxLines
 }
@@ -2954,6 +2954,9 @@ func listWindow(total int, cursor int, maxVisible int) (int, int) {
 }
 
 func renderChoiceList(b *strings.Builder, items []string, cursor int, maxVisible int, useColor bool, theme Theme) {
+	if maxVisible <= 0 {
+		return
+	}
 	if len(items) == 0 {
 		msg := "no matches"
 		if useColor {
@@ -2978,9 +2981,6 @@ func renderChoiceList(b *strings.Builder, items []string, cursor int, maxVisible
 	if cursor < 0 || cursor >= len(groups) {
 		cursor = 0
 	}
-	if maxVisible <= 0 {
-		maxVisible = 1
-	}
 	if len(groups[cursor].lines) > maxVisible {
 		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
 		for i := start; i < end; i++ {
@@ -2999,6 +2999,9 @@ func renderChoiceList(b *strings.Builder, items []string, cursor int, maxVisible
 }
 
 func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, maxVisible int, useColor bool, theme Theme) {
+	if maxVisible <= 0 {
+		return
+	}
 	if len(items) == 0 {
 		msg := "no matches"
 		if useColor {
@@ -3034,9 +3037,6 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 
 	if cursor < 0 || cursor >= len(groups) {
 		cursor = 0
-	}
-	if maxVisible <= 0 {
-		maxVisible = 1
 	}
 	if len(groups[cursor].lines) > maxVisible {
 		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
@@ -3384,6 +3384,9 @@ func groupWindowByLineBudget(groups []workspaceRepoChoiceGroup, cursorWorkspace 
 
 func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, cursor int, maxVisible int, useColor bool, theme Theme) {
 	groups, cursorWorkspace, cursorLine := buildWorkspaceRepoChoiceGroups(items, cursor, useColor, theme)
+	if maxVisible <= 0 {
+		return
+	}
 	if len(groups) == 0 {
 		msg := "no matches"
 		if useColor {
@@ -3391,10 +3394,6 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
 		return
-	}
-
-	if maxVisible <= 0 {
-		maxVisible = 1
 	}
 
 	if cursorWorkspace < 0 || cursorWorkspace >= len(groups) {
@@ -3426,6 +3425,9 @@ func renderWorkspaceRepoChoiceList(b *strings.Builder, items []WorkspaceChoice, 
 }
 
 func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, cursor int, maxVisible int, useColor bool, theme Theme) {
+	if maxVisible <= 0 {
+		return
+	}
 	if len(items) == 0 {
 		msg := "no matches"
 		if useColor {
@@ -3480,9 +3482,6 @@ func renderWorkspaceChoiceList(b *strings.Builder, items []WorkspaceChoice, curs
 
 	if cursor < 0 || cursor >= len(groups) {
 		cursor = 0
-	}
-	if maxVisible <= 0 {
-		maxVisible = 1
 	}
 	if len(groups[cursor].lines) > maxVisible {
 		start, end := listWindow(len(groups[cursor].lines), 0, maxVisible)
