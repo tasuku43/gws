@@ -2992,7 +2992,7 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 		if useColor {
 			msg = theme.Muted.Render(msg)
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), msg))
+		b.WriteString(fmt.Sprintf("%s%s%s\n", output.Indent+output.Indent, mutedToken(theme, useColor, output.TreeBranchLast), msg))
 		return
 	}
 
@@ -3000,6 +3000,10 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 	groups := make([]workspaceRepoChoiceGroup, 0, len(items))
 	for i := range items {
 		item := items[i]
+		connector := output.TreeBranchMid
+		if i == len(items)-1 {
+			connector = output.TreeBranchLast
+		}
 		display := item.Label
 		if i == cursor && useColor {
 			display = lipgloss.NewStyle().Bold(true).Render(display)
@@ -3012,7 +3016,7 @@ func renderRepoChoiceList(b *strings.Builder, items []PromptChoice, cursor int, 
 				display += " - " + desc
 			}
 		}
-		line := fmt.Sprintf("%s%s %s", output.Indent+output.Indent, mutedToken(theme, useColor, output.LogConnector), display)
+		line := fmt.Sprintf("%s%s%s", output.Indent+output.Indent, mutedToken(theme, useColor, connector), display)
 		groups = append(groups, workspaceRepoChoiceGroup{lines: wrapRawLineToWidth(line, width)})
 	}
 
