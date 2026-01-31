@@ -1602,11 +1602,19 @@ func renderMultiSelectFrame(model multiSelectModel, height int, headerLines ...s
 	lines = append(lines, fmt.Sprintf("%s: %s", label, model.input.View()))
 	frame.SetInputsPrompt(lines...)
 
-	selectedLines := collectLines(func(b *strings.Builder) {
-		renderSelectedChoiceTree(b, model.selected, model.useColor, model.theme)
-	})
-	infoLines := 1 + len(selectedLines) + 1
-	if model.errorLine != "" {
+	hasSelected := len(model.selected) > 0
+	hasError := model.errorLine != ""
+
+	var selectedLines []string
+	infoLines := 0
+	if hasSelected {
+		selectedLines = collectLines(func(b *strings.Builder) {
+			renderSelectedChoiceTree(b, model.selected, model.useColor, model.theme)
+		})
+		// "selected" header + selected lines
+		infoLines += 1 + len(selectedLines)
+	}
+	if hasError {
 		infoLines++
 	}
 	// +1 for the inline "finish" help line appended under Inputs.
@@ -1616,14 +1624,18 @@ func renderMultiSelectFrame(model multiSelectModel, height int, headerLines ...s
 	})
 	frame.AppendInputsRaw(rawLines...)
 
-	if model.useColor {
-		frame.SetInfo(model.theme.Accent.Render("selected"))
-	} else {
-		frame.SetInfo("selected")
+	if hasSelected || hasError {
+		if hasSelected {
+			if model.useColor {
+				frame.SetInfo(model.theme.Accent.Render("selected"))
+			} else {
+				frame.SetInfo("selected")
+			}
+			frame.AppendInfoRaw(selectedLines...)
+		}
 	}
-	frame.AppendInfoRaw(selectedLines...)
 
-	if model.errorLine != "" {
+	if hasError {
 		msg := model.errorLine
 		if model.useColor {
 			msg = model.theme.Error.Render(msg)
